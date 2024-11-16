@@ -2,11 +2,15 @@ import os
 from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
 from torrents.torrent_info import TorrentInfo
+from tracker.tracker import Tracker
 
 def main():
     base_path = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(base_path, "tests/bigfile.txt")
     
+    tracker = Tracker()
+    tracker.create_initial_tracker(directory='./src/tests/')
+
     torrent_creator = TorrentCreator(
         tracker_url="localhost", 
         piece_length=256 * 1024)
