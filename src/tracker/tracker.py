@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 
 class Tracker:
 
@@ -45,7 +46,7 @@ class Tracker:
             json_file.write(empty_tracker_json)
 
 
-    def update_tracker(torrent_metadata, peer_info, tracker_file="tracker_data.json"):
+    def update_tracker(self, torrent_metadata, peer_info, tracker_file="tracker_data.json"):
         """
         Updates the tracker's JSON file with the metadata of a new torrent
         and the information of the client (peer).
@@ -101,3 +102,70 @@ class Tracker:
         with open(tracker_file, 'w') as file:
             json.dump(tracker_data, file, indent=4)
         print(f"Tracker successfully updated in {tracker_file}")
+
+    def get_torrent_info(self, torrent_id, tracker_file="tracker_data.json"):
+        """
+        Retrieves the information of a torrent from the tracker's JSON file.
+
+        Args:
+            torrent_id (str): ID of the torrent to retrieve.
+            tracker_file (str): Path to the tracker's JSON file (default is 'tracker_data.json').
+        Returns:
+            dict: Information of the torrent.
+        """
+
+        if not os.path.exists(tracker_file):
+            raise FileNotFoundError(f"The tracker file '{tracker_file}' does not exist.")
+
+        with open(tracker_file, 'r') as file:
+            tracker_data = json.load(file)
+
+        torrent_info = next((torrent for torrent in tracker_data["torrents"]
+                            if torrent["torrent_id"] == torrent_id), None)
+
+        if not torrent_info:
+            raise ValueError(f"The torrent with ID '{torrent_id}' was not found in the tracker.")
+        
+        return torrent_info
+    
+    def start_tracker(self, host="0.0.0.0", port=8000):
+        """
+        Starts the tracker server. Receives messages from clients and sends
+        The message format (JSON) is: 
+        {
+            "torrent_id": "hash"
+        }
+
+        Args:
+            host (str): IP address to bind the server to (default is 0.0.0.0.)
+            port (int): Port to bind the server to (default is 8000)
+        Returns:
+            None
+        """
+           
+        server =  socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind((host, port))
+        server.listen(5)
+        print(f"Tracker server started at {host}:{port}")
+        
+        while True:
+            client_socket, addr = server.accept()
+
+            try:
+                data = client_socket.recv(1024)
+                message = json.loads(data.decode())
+                print(f"Received message: {message}")
+
+                torrent_id = message["torrent_id"]
+                torrent_info = self.get_torrent_info(torrent_id)
+                print(f"Sending torrent info: {torrent_info}")
+
+                client_socket.sendall(json.dumps(torrent_info).encode())
+            except Exception as e:
+                print(f"Error processing client request: {e}")
+            finally:
+                client_socket.close()
+            
+            
+            
+             
