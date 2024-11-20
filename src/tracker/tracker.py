@@ -16,6 +16,7 @@ class Tracker:
         Returns:
             None
         """
+        
         def create_empty_tracker_data():
             tracker_data = {
                 "torrents": [
@@ -113,6 +114,11 @@ class Tracker:
         Returns:
             dict: Information of the torrent.
         """
+        
+        # TODO Etso con los directorios es un parche xq no me funcionaba bien
+        
+        actual_folder = os.path.dirname(os.path.abspath(__file__))
+        tracker_file = os.path.join(actual_folder, os.path.join("database", tracker_file))
 
         if not os.path.exists(tracker_file):
             raise FileNotFoundError(f"The tracker file '{tracker_file}' does not exist.")
@@ -128,7 +134,7 @@ class Tracker:
         
         return torrent_info
     
-    def start_tracker(self, host="0.0.0.0", port=8000):
+    def start_tracker(self, host="0.0.0.0", port=8080):
         """
         Starts the tracker server. Receives messages from clients and sends
         The message format (JSON) is: 
@@ -142,6 +148,7 @@ class Tracker:
         Returns:
             None
         """
+        # print(os.path.abspath(__file__))
            
         server =  socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind((host, port))
