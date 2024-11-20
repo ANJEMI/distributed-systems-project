@@ -3,13 +3,14 @@ from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
 from torrents.torrent_info import TorrentInfo
 from tracker.tracker import Tracker
+from client.client import Client
 
 def main():
     base_path = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(base_path, "tests/bigfile.txt")
     
     tracker = Tracker()
-    tracker.create_initial_tracker(directory='./src/tests/')
+    tracker.create_initial_tracker(directory='./src/tracker/database/')
 
     torrent_creator = TorrentCreator(
         tracker_url="localhost", 
@@ -34,8 +35,18 @@ def main():
     
     print(torrent_info)
     
-    
-    
+def test_server():
+    tracker = Tracker()
+    tracker.start_tracker()    
+
+def test_client():
+    client = Client(client_id="client1")
+    client.connect_to_tracker(tracker_ip="0.0.0.0", tracker_port=8080)
+    client.request_torrent_data(torrent_id="1")
 
 if __name__ == '__main__':
-    main() 
+    main()
+    # ! Para probar el server y el cliente primero correr el server y luego el cliente
+    # ! En dos terminales distintas
+    # test_server()
+    # test_client() 
