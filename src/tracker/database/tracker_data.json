@@ -1,19 +1,23 @@
 {
-  "torrents": [
-    {
-      "torrent_id": "1",
-      "name": "Torrent de prueba",
-      "size": 1024,
-      "pieces": ["a", "b", "c"],
-      "seeders": 1,
-      "leechers": 0,
-      "peers": [
+    "torrents": [
         {
-          "peer_id": "1",
-          "ip": "",
-          "port": 6881
+            "torrent_id": "1",
+            "name": "Torrent de prueba",
+            "size": 1024,
+            "pieces": [
+                "a",
+                "b",
+                "c"
+            ],
+            "seeders": 1,
+            "leechers": 0,
+            "peers": [
+                {
+                    "ip": "192.168.1.2",
+                    "port": 6882,
+                    "client_id": "2"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
