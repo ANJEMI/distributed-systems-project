@@ -1,19 +1,3 @@
 {
-  "torrents": [
-    {
-      "torrent_id": "1",
-      "name": "Torrent de prueba",
-      "size": 1024,
-      "pieces": ["a", "b", "c"],
-      "seeders": 1,
-      "leechers": 0,
-      "peers": [
-        {
-          "peer_id": "1",
-          "ip": "",
-          "port": 6881
-        }
-      ]
-    }
-  ]
+    "torrents": []
 }
