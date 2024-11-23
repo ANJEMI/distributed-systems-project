@@ -40,18 +40,22 @@ def test_server():
     tracker = Tracker()
 
     torrent_metadata = {
-    "torrent_id": "1",
-    "name": "Torrent de prueba",
-    "size": 1024,
-    "pieces": ["a", "b", "c"]
+        "torrent_id": "1",
+        "name": "Torrent de prueba",
+        "size": 1024,
+        "piece_size": 256,  # Example piece size in bytes
+        "pieces": ["a", "b", "c"],  # List of pieces
+        "number_pieces": 3  # Example number of pieces
     }
 
     peer_info = {
-    "ip": "192.168.1.2",
-    "port": 6882,
-    "client_id": "2"
+        "ip": "192.168.1.2",
+        "port": 6882,
+        "client_id": "2"
     }
+
     tracker.update_tracker(torrent_metadata, peer_info)
+
     # Call the update_tracker method
     tracker.start_tracker()
 
