@@ -10,7 +10,7 @@ def main():
     file_path = os.path.join(base_path, "tests/bigfile.txt")
     
     tracker = Tracker()
-    tracker.create_initial_tracker(directory='./src/tracker/database/')
+    tracker.create_initial_tracker()
 
     torrent_creator = TorrentCreator(
         tracker_url="localhost", 
@@ -49,4 +49,4 @@ if __name__ == '__main__':
     # ! Para probar el server y el cliente primero correr el server y luego el cliente
     # ! En dos terminales distintas
     # test_server()
-    # test_client() 
+    test_client() 
