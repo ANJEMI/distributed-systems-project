@@ -39,6 +39,7 @@ class Tracker:
         Returns:
             None
         """
+        print("me ejecute")
         file_path = os.path.join(self.TRACKER_DIRECTORY, self.TRACKER_FILE_NAME)
 
         if not os.path.exists(file_path):

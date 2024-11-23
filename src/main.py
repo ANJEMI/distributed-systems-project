@@ -1,4 +1,5 @@
 import os
+import sys
 from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
 from torrents.torrent_info import TorrentInfo
@@ -37,16 +38,47 @@ def main():
     
 def test_server():
     tracker = Tracker()
-    tracker.start_tracker()    
+
+    torrent_metadata = {
+    "torrent_id": "1",
+    "name": "Torrent de prueba",
+    "size": 1024,
+    "pieces": ["a", "b", "c"]
+    }
+
+    peer_info = {
+    "ip": "192.168.1.2",
+    "port": 6882,
+    "client_id": "2"
+    }
+    tracker.update_tracker(torrent_metadata, peer_info)
+    # Call the update_tracker method
+    tracker.start_tracker()
+
+
 
 def test_client():
     client = Client(client_id="client1")
     client.connect_to_tracker(tracker_ip="0.0.0.0", tracker_port=8080)
     client.request_torrent_data(torrent_id="1")
 
+def main():
+    """
+    Main entry point for the program. Handles running the server or client based on the input argument.
+    """
+    if len(sys.argv) < 2:
+        print("Usage: python script_name.py [server|client]")
+        sys.exit(1)
+
+    mode = sys.argv[1].lower()
+
+    if mode == "server":
+        test_server()
+    elif mode == "client":
+        test_client()
+    else:
+        print("Invalid argument. Use 'server' or 'client'.")
+        sys.exit(1)
+
 if __name__ == '__main__':
     main()
-    # ! Para probar el server y el cliente primero correr el server y luego el cliente
-    # ! En dos terminales distintas
-    # test_server()
-    test_client() 
