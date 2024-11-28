@@ -1,6 +1,7 @@
 import socket
 import json
-from typing import Dict, List, Tuple
+from typing import Dict, List
+import os
 
 class Client:
     def __init__(self, client_id):
@@ -8,6 +9,12 @@ class Client:
         self.tracker_socket = None
         self.torrents_downloading = {}
         self.pieces_downloaded: Dict[str,List[bool]]  = {}
+        # Path is the actual path of this file concatenated with the download folder
+        # and client_id
+        self.download_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"downloads/client_{client_id}")
+        print(self.download_path)
+        if not os.path.exists(self.download_path):
+            os.makedirs(self.download_path)
         
     def connect_to_tracker(self, tracker_ip, tracker_port):
         """

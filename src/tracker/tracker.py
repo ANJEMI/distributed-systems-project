@@ -71,7 +71,7 @@ class Tracker:
                 "size": torrent_metadata["size"],
                 "piece_size": torrent_metadata["piece_size"],
                 "pieces": torrent_metadata["pieces"],
-                "number_pieces": torrent_metadata["number_pieces"],
+                "number_of_pieces": torrent_metadata["number_of_pieces"],
                 "seeders": 1,
                 "leechers": 0,
                 "peers": [
