@@ -7,5 +7,4 @@ class TorrentInfo:
     name: str
     piece_length: int
     length: int
-    number_of_pieces: int
-    pieces: List[str]
+    pieces: str
