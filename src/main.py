@@ -45,6 +45,7 @@ def test_server():
         "size": 1024,
         "piece_size": 256,  # Example piece size in bytes
         "pieces": ["a", "b", "c"],  # List of pieces
+        "number_of_pieces": 3  # Example number of pieces
         "number_pieces": 3  # Example number of pieces
     }
 
@@ -69,6 +70,11 @@ def test_client():
 def main():
     """
     Main entry point for the program. Handles running the server or client based on the input argument.
+    
+    # Example usage:
+    # python main.py server
+    # python main.py client
+    
     """
     if len(sys.argv) < 2:
         print("Usage: python script_name.py [server|client]")
