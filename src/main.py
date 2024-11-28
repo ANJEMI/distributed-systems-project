@@ -46,6 +46,7 @@ def test_server():
         "piece_size": 256,  # Example piece size in bytes
         "pieces": ["a", "b", "c"],  # List of pieces
         "number_of_pieces": 3  # Example number of pieces
+        "number_pieces": 3  # Example number of pieces
     }
 
     peer_info = {
