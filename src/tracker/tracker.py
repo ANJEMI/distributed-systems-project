@@ -39,7 +39,8 @@ class Tracker:
         Returns:
             None
         """
-        print("me ejecute")
+        print("Executing update_tracker...")
+
         file_path = os.path.join(self.TRACKER_DIRECTORY, self.TRACKER_FILE_NAME)
 
         if not os.path.exists(file_path):
@@ -68,7 +69,9 @@ class Tracker:
                 "torrent_id": torrent_metadata["torrent_id"],
                 "name": torrent_metadata["name"],
                 "size": torrent_metadata["size"],
+                "piece_size": torrent_metadata["piece_size"],
                 "pieces": torrent_metadata["pieces"],
+                "number_of_pieces": torrent_metadata["number_of_pieces"],
                 "seeders": 1,
                 "leechers": 0,
                 "peers": [
@@ -83,6 +86,7 @@ class Tracker:
 
         with open(file_path, 'w') as file:
             json.dump(tracker_data, file, indent=4)
+        print("Tracker successfully updated.")
 
     def get_torrent_info(self, torrent_id):
         """
