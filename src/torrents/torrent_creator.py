@@ -3,6 +3,7 @@ import hashlib
 from typing import List, Dict
 import bencodepy
 
+
 class TorrentCreator:
     def __init__(self, 
                 tracker_url: str = "localhost", 
@@ -16,38 +17,42 @@ class TorrentCreator:
         self.tracker_url = tracker_url
         self.piece_length = piece_length
         
-    def generate_pieces(self, file_path: str) -> List[bytes]:
-        """
-        Generate the pieces of the torrent file
+    # def generate_pieces(self, file_path: str) -> List[bytes]:
+    #     """
+    #     Generate the pieces of the torrent file
         
-        :param file_path: The path to the file to generate the pieces for
-        :return pieces: A list of pieces
-        """
-        pieces = []
+    #     :param file_path: The path to the file to generate the pieces for
+    #     :return pieces: A list of pieces
+    #     """
+    #     pieces = []
         
-        with open(file_path, "rb") as f:
-            while True:
-                piece = f.read(self.piece_length)
-                if not piece:
-                    break
-                pieces.append(piece)
+    #     with open(file_path, "rb") as f:
+    #         while True:
+    #             piece = f.read(self.piece_length)
+    #             if not piece:
+    #                 break
+    #             pieces.append(piece)
         
-        return pieces
+    #     return pieces
     
-    def encode_pieces(self, pieces) -> bytes:
+    def encode_pieces(self, file_path) -> bytes:
         """
         Encode the pieces into a single string
         
         :param pieces: A list of pieces
         :return encoded_pieces: A single string of encoded pieces
         """
-        encoded_pieces = b""
-        for piece in pieces:
-            encoded_pieces += hashlib.sha256(piece).digest()
-        
-        return encoded_pieces
+        pieces = b''
     
-    def create_torrent(self, file_path: str) -> str:
+        with open(file_path, 'rb') as f:
+            while chunk := f.read(self.piece_length):
+                sha1_hash = hashlib.sha1(chunk).digest()  # Hash de 20 bytes (binario)
+                pieces += sha1_hash
+                
+        return pieces
+
+    
+    def create_torrent(self, file_path: str, output_path:str = None) -> str:
         """
         Create a torrent file
         
@@ -58,10 +63,11 @@ class TorrentCreator:
         file_name = os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
         
-        output_path = os.path.join(os.path.dirname(file_path), os.path.splitext(file_name)[0] + ".torrent")
+        if output_path is None:
+            output_path = os.path.join(os.path.dirname(file_path), os.path.splitext(file_name)[0] + ".torrent")
         
-        pieces = self.generate_pieces(file_path)
-        encoded_pieces = self.encode_pieces(pieces)
+        # pieces = self.generate_pieces(file_path)
+        encoded_pieces = self.encode_pieces(file_path)
         
         torrent_data = {
             "announce": self.tracker_url,
