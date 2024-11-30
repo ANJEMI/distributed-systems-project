@@ -74,7 +74,6 @@ def test_server():
         "piece_size": 256,  # Example piece size in bytes
         "pieces": ["a", "b", "c"],  # List of pieces
         "number_of_pieces": 3  # Example number of pieces
-        "number_pieces": 3  # Example number of pieces
     }
 
     peer_info = {
@@ -90,34 +89,45 @@ def test_server():
 
 
 
-def test_client():
+def test_download_from_peer():
+    print("empezo download")
     client = Client(client_id=1)
     client.connect_to_tracker(tracker_ip="0.0.0.0", tracker_port=8080)
     client.request_torrent_data(torrent_id="1")
+    #todo aqui va el inicio de la descarga si ya se tiene info del archivo
+
+def test_upload_for_peers():
+    print("empezo upload")
+    client = Client(client_id=1)
+    client.connect_to_tracker(tracker_ip="0.0.0.0", tracker_port=8080)
+    #todo aqui va creacion de el archivo torrent que voy a compartir
+
+    #TODO aqui va conexion al tracker y decirle oye tengo esto
+
+    #todo aqui va una funcion que represente el inicio del while true para escuchar las peticiones del otro peer
+
+    #todo y ya 
+
+
 
 def main():
-    """
-    Main entry point for the program. Handles running the server or client based on the input argument.
-    
-    # Example usage:
-    # python main.py server
-    # python main.py client
-    
-    """
+
     if len(sys.argv) < 2:
-        print("Usage: python script_name.py [server|client]")
+        print("Usage: python script_name.py [server|upload|download]")
         sys.exit(1)
 
     mode = sys.argv[1].lower()
 
     if mode == "server":
         test_server()
-    elif mode == "client":
-        test_client()
+    elif mode == "upload":
+        test_upload_for_peers()
+    elif mode == "download":
+        test_download_from_peer()
     else:
-        print("Invalid argument. Use 'server' or 'client'.")
+        print("Invalid argument. Use 'server', 'download' or 'upload'.")
         sys.exit(1)
 
 if __name__ == '__main__':
-    # main()
-    create_torrents(file_path= os.path.join(base_path, "bigfile.txt"), tracker_url="0.0.0.0")
+    main()
+    # create_torrents(file_path= os.path.join(base_path, "bigfile.txt"), tracker_url="0.0.0.0")
