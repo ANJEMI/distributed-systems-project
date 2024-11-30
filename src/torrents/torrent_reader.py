@@ -1,5 +1,7 @@
 from typing import Dict, List
 import bencodepy
+from torrents.torrent_info import TorrentInfo
+import hashlib
 
 class TorrentReader:
     @staticmethod
@@ -25,11 +27,11 @@ class TorrentReader:
         """
         
         info = torrent_data.get(b"info", {})
-        return {
-            "announce": torrent_data.get(b"announce", b"").decode("utf-8"),
-            "name": info.get(b"name", b"").decode("utf-8"),
-            "pieceLength": info.get(b"piece length", 0),
-            "length": info.get(b"length", 0),
-            "pieces": info.get(b"pieces", b"").hex()
-        }
-      
+        
+        return TorrentInfo(
+            announce=torrent_data.get(b"announce", b"").decode("utf-8"),
+            name=info.get(b"name", b"").decode("utf-8"),
+            piece_length=info.get(b"piece length", 0),
+            length=info.get(b"length", 0),
+            pieces=info.get(b"pieces", b"").hex()
+        )

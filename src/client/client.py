@@ -2,6 +2,9 @@ import socket
 import json
 from typing import Dict, List
 from client.peer import Peer
+from torrents.torrent_creator import TorrentCreator
+from torrents.torrent_reader import TorrentReader
+from torrents.torrent_info import TorrentInfo
 import os
 import threading
 import struct
@@ -35,19 +38,24 @@ class Client:
         """
         Find the files that the client has uploaded.
         """
-        torrents_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "torrents")
-        data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-        
+        torrents_path = os.path.join(self.upload_path, "torrents")
+        if not os.path.exists(torrents_path):
+            os.makedirs(torrents_path)
+        data_path = os.path.join(self.upload_path, "data")
+        if not os.path.exists(data_path):
+            os.makedirs(data_path)
+            
         for file_name in os.listdir(torrents_path):
             if file_name.endswith(".torrent"):
                 torrent_id = file_name.split(".")[0]
                 torrent_json_data = os.path.join(torrents_path,torrent_id + ".json")
-                with open(torrent_json_data, "r") as file:
-                    torrent_data = json.load(file)
-                    path = os.path.join(data_path, torrent_data["name"])
-                    if os.path.exists(path):
-                        self.uploaded_files[torrent_id] = path
-                        print(f"Found uploaded file {torrent_data['name']} with ID {torrent_id}")
+                if os.path.exists(torrent_json_data):
+                    with open(torrent_json_data, "r") as file:
+                        torrent_data = json.load(file)
+                        path = os.path.join(data_path, torrent_data["name"])
+                        if os.path.exists(path):
+                            self.uploaded_files[torrent_id] = path
+                            print(f"Found uploaded file {torrent_data['name']} with ID {torrent_id}")
                     
                 
     
@@ -128,25 +136,25 @@ class Client:
         except Exception as e:
             raise ConnectionError(f"Error connecting to tracker: {e}")
 
-    def request_torrent_data(self, torrent_id):
+    def request_torrent_data(self, pieces):
         """
         Sends a request (JSON) to the tracker server for the torrent data.
         Receives the torrent data from the tracker server.
         
         Request format:
         {
-            "torrent_id": "hash"
+            "type": "get_torrent",
+            "pieces": "hash"
         }
         
         
         Args:
-            torrent_id (str): ID of the torrent to request.
+            pieces (str): ID of the torrent to request.
         Returns:
             response: The torrent data from the tracker server.
         
         Example response:
             {
-              "torrent_id": "1",
               "name": "Torrent de prueba",
               "size": 1024,
               "pieces": ["a", "b", "c"],
@@ -167,7 +175,8 @@ class Client:
         
         try:
             request = {
-                "torrent_id": torrent_id
+                "type": "get_torrent",
+                "pieces": pieces
             }
 
             request = json.dumps(request)
@@ -178,9 +187,11 @@ class Client:
 
             response = json.loads(response)
 
-            self.torrents_downloading[torrent_id] = response
-            # TODO - No tener que hacer length y modificar el tracker para que devuelva el numero de piezas
-            self.pieces_downloaded[torrent_id] = [False] * len(set(response["pieces"]))
+            self.torrents_downloading[pieces] = response
+            
+            length = int(response["size"]) // int(response["piece_size"])
+            
+            self.pieces_downloaded[pieces] = [False] * length
 
             return response
         
@@ -265,3 +276,103 @@ class Client:
         if self.server_socket:
             self.server_socket.close()
             print("Server socket closed")
+    
+    def create_torrent_file(self, file_path, tracker_ip=None, tracker_port=None, output_path=None):
+        """
+        Create a torrent file for a given file.
+        
+        Args:
+            file_path (str): The path to the file to create the torrent for.
+            tracker_ip (str): IP address of the tracker server.
+            tracker_port (int): Port number of the tracker server.
+            output_path (str): The path to save the torrent file.
+        Returns:
+            None
+        """
+        
+        if not tracker_ip or not tracker_port:
+            tracker_ip = self.tracker_socket.getsockname()[0]
+            tracker_port = self.tracker_socket.getsockname()[1]
+            
+            
+        torrent_creator = TorrentCreator(tracker_ip, tracker_port)
+        output_path = torrent_creator.create_torrent(file_path, output_path)
+        
+        print(f"Torrent file created at: {output_path}")
+        return output_path
+    
+    def upload_torrent_file(self, torrent_file_path):
+        """
+        Upload a torrent file to the tracker server.
+        
+        Args:
+            torrent_file_path (str): The path to the torrent file to upload.
+        Returns:
+            None
+        """
+        torrent_data = TorrentReader.read_torrent(torrent_file_path)
+        torrent_info = TorrentReader.extract_info(torrent_data)
+        
+
+        request = {
+            "type": "register_torrent",
+            "torrent_metadata": 
+                {
+                    "name": torrent_info.name,
+                    "size": torrent_info.length,
+                    "piece_size": torrent_info.piece_length,
+                    "pieces": torrent_info.pieces,
+                },
+            "peer_info": {
+                "peer_id": self.client_id,
+                "ip": "0.0.0." + str(self.client_id),
+                "port": self.listen_port
+            }    
+        }
+        
+        
+        request = json.dumps(request)
+        
+        try:
+            message = request.encode()
+            header = struct.pack('>I', len(message))
+            
+            message = header + message
+            
+            self.tracker_socket.send(message)
+            
+            response = self.tracker_socket.recv(1024).decode()
+            print(f"Tracker response: {response}")
+        except Exception as e:
+            raise ConnectionError(f"Error uploading torrent file: {e}")
+    
+    def Run(self):
+        """
+        Run the client console application.
+        """
+        print("Client console application")
+        print("Commands:")
+        print("1. connect <tracker_ip> <tracker_port>")
+        print("2. get_torrent <torrent_id>")
+        print("3. download <torrent_id>")
+        print("4. create_torrent <file_path>")
+        print("5. upload_torrent <torrent_file_path>")
+        print("6. exit")
+        
+        while True:
+            command = input("Enter a command: ")
+            command = command.split()
+            
+            if command[0] == "connect":
+                self.connect_to_tracker(command[1], int(command[2]))
+            elif command[0] == "get_torrent":
+                self.request_torrent_data(command[1])
+            elif command[0] == "download":
+                self.start_download(command[1])
+            elif command[0] == "create_torrent":
+                self.create_torrent_file(command[1])
+            elif command[0] == "upload_torrent":
+                self.upload_torrent_file(command[1])
+            elif command[0] == "exit":
+                self.close()
+                break
