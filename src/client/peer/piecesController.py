@@ -37,4 +37,11 @@ class PieceController:
         self.pieces[piece_index].set_block(block_offset, data)
         
         if self.pieces[piece_index].is_complete():
-            self._write_piece(piece_index)
+            self.pieces[piece_index].is_downloaded = True
+            
+    def get_empty_block(self, piece_index):
+        for i, block in enumerate(self.pieces[piece_index].blocks):
+            if block.state == State.EMPTY:
+                return piece_index, i, block
+        return None
+    
