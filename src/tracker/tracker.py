@@ -2,6 +2,7 @@ import json
 import os
 import socket
 import struct
+import threading
 
 class Tracker:
     # TRACKER_DIRECTORY = "src/tracker/database"  make dinamic
@@ -112,8 +113,48 @@ class Tracker:
         if not torrent_info:
             raise ValueError(f"The torrent was not found in the tracker.")
         
-        return torrent_info
-    
+        message = json.dumps(torrent_info).encode()
+        
+        header = struct.pack("!I", len(message))
+        
+        message = header + message
+        
+        return message
+        
+    def handle_client(self, client_socket):
+        try:
+            while True:
+                # Recibir el encabezado
+                header = client_socket.recv(4)
+                if not header:
+                    break
+                data_len = struct.unpack("!I", header)[0]
+                data = client_socket.recv(data_len)
+
+                # Procesar el mensaje
+                message = json.loads(data.decode())
+                print("Received message:")
+                print(f"{message}")
+
+                if message["type"] == "register_torrent":
+                    torrent_metadata = message["torrent_metadata"]
+                    peer_info = message["peer_info"]
+                    self.update_tracker(torrent_metadata, peer_info)
+                    client_socket.sendall(b"Torrent successfully registered.")
+
+                elif message["type"] == "get_torrent":
+                    info_hash = message["info_hash"]
+                    torrent_info = self.get_torrent_info(info_hash)
+                    client_socket.sendall(torrent_info)
+                else:
+                    print("Invalid message type.")
+                    client_socket.sendall(b"Invalid message type.")
+        except Exception as e:
+            print(f"Error processing client request: {e}")
+        finally:
+            print("Closing connection with: ", client_socket.getpeername())
+            client_socket.close()
+
     def start_tracker(self, host="0.0.0.0", port=8080):
         """
         Starts the tracker server. Receives messages from clients and sends
@@ -134,37 +175,7 @@ class Tracker:
         
         while True:
             client_socket, addr = server.accept()
-
-            try:
-                # receive all data from the client
-                
-                header = client_socket.recv(4)
-                if not header:
-                    break
-                data_len = struct.unpack("!I", header)[0]
-                data = client_socket.recv(data_len)
-
-                message = json.loads(data.decode())
-                print("Received message:")
-                print(f"{message}")
-
-                if message["type"] == "register_torrent":
-                    torrent_metadata = message["torrent_metadata"]
-                    peer_info = message["peer_info"]
-                    self.update_tracker(torrent_metadata, peer_info)
-                    client_socket.sendall(b"Torrent successfully registered.")
-                    
-                elif message["type"] == "get_torrent":
-                    info_hash = message["info_hash"]
-                    torrent_info = self.get_torrent_info(info_hash)
-                    print(f"Sending torrent info: {torrent_info}")
-                    client_socket.sendall(json.dumps(torrent_info).encode())
-                else:
-                    print("Invalid message type.")
-                    client_socket.sendall(b"Invalid message type.")
-               
-            except Exception as e:
-                print(f"Error processing client request: {e}")
-            finally:
-                client_socket.close()
-
+            print(f"Connection from {addr}")
+            
+            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,), daemon=True)
+            client_thread.start()
