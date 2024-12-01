@@ -1,1 +1,2 @@
 bencodepy==0.9.5
+dottorrent==1.10.1

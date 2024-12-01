@@ -5,7 +5,10 @@ import socket
 import json
 import random
 import hashlib
+import random
+import hashlib
 from typing import Dict, List
+
 
 from client.peer.peer import Peer
 from torrents.torrent_creator import TorrentCreator
@@ -33,7 +36,8 @@ class Client:
         if not os.path.exists(self.upload_path):
             os.makedirs(self.upload_path)
             
-        self.listen_port = listen_port + self.client_id
+        # self.listen_port = listen_port + self.client_id
+        self.listen_port = listen_port
         self.server_socket = None
         
         # Dict[info_hash, Dict[piece_index, piece_data]]
@@ -83,9 +87,9 @@ class Client:
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # ip = '0.0.0.0'
-            self.server_socket.bind(('0.0.0.'+ str(self.client_id), self.listen_port))
+            self.server_socket.bind(('127.0.0.'+ str(self.client_id), self.listen_port))
             self.server_socket.listen(5)
-            print(f"Client {self.client_id} listening on port {self.listen_port} and IP 0.0.0.{self.client_id}")
+            print(f"Client {self.client_id} listening on port {self.listen_port} and IP 127.0.0.{self.client_id}")
 
             while True:
                 try:
@@ -403,12 +407,20 @@ class Client:
         except Exception as e:
             raise ConnectionError(f"Error uploading torrent file: {e}")
     
+
     def Run(self):
         """
         Run the client console application.
         """
-        print("Client console application")
-        print("Commands:")
+
+        RESET = "\033[0m"
+        GREEN = "\033[92m"
+        RED = "\033[91m"
+        YELLOW = "\033[93m"
+        BLUE = "\033[94m"
+
+        print(f"{self.BLUE}Client console application{self.RESET}")
+        print(f"{self.YELLOW}Commands:{self.RESET}")
         print("1. connect <tracker_ip> <tracker_port>")
         print("2. get_torrent <info_hash>")
         print("3. download <info_hash>")
@@ -417,19 +429,28 @@ class Client:
         print("6. exit")
         
         while True:
-            command = input("Enter a command: ")
+            command = input(f"{self.GREEN}Enter a command: {self.RESET}")
             command = command.split()
             
-            if command[0] == "connect":
-                self.connect_to_tracker(command[1], int(command[2]))
-            elif command[0] == "get_torrent":
-                self.request_torrent_data(command[1])
-            elif command[0] == "download":
-                self.start_download(command[1])
-            elif command[0] == "create_torrent":
-                self.create_torrent_file(file_path=str(command[1]))
-            elif command[0] == "upload_torrent":
-                self.upload_torrent_file(command[1])
-            elif command[0] == "exit":
-                self.close()
-                break
+            try:
+                if command[0] == "connect":
+                    self.connect_to_tracker(command[1], int(command[2]))
+                elif command[0] == "get_torrent":
+                    self.request_torrent_data(command[1])
+                elif command[0] == "download":
+                    self.start_download(command[1])
+                elif command[0] == "create_torrent":
+                    self.create_torrent_file(file_path=str(command[1]))
+                elif command[0] == "upload_torrent":
+                    self.upload_torrent_file(command[1])
+                elif command[0] == "exit":
+                    self.close()
+                    break
+                else:
+                    print(f"{self.RED}Unknown command. Please try again.{self.RESET}")
+            except IndexError:
+                print(f"{self.RED}Error: Missing arguments. Please check your command.{self.RESET}")
+            except ValueError:
+                print(f"{self.RED}Error: Invalid value. Please check your input.{self.RESET}")
+            except Exception as e:
+                print(f"{self.RED}An error occurred: {e}{self.RESET}")

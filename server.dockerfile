@@ -11,7 +11,7 @@ COPY src/common /app/common
 COPY src/__init__.py /app/
 COPY src/tracker/main.py /app/
 
-EXPOSE 5000
+EXPOSE 8080
 
 CMD ["/bin/sh"]
 
