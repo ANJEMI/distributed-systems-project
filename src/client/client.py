@@ -3,13 +3,15 @@ import threading
 import struct
 import socket
 import json
+import random
+import hashlib
 from typing import Dict, List
+
 from client.peer.peer import Peer
 from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
 from client.peer.piecesController import PieceController
 from client.peer.piece import Piece
-import hashlib
 from torrents.torrent_info import TorrentInfo
 from client.messages import *
 
@@ -80,10 +82,10 @@ class Client:
         """
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            ip = '0.0.0.0'
-            self.server_socket.bind((ip, self.listen_port))
+            # ip = '0.0.0.0'
+            self.server_socket.bind(('0.0.0.'+ str(self.client_id), self.listen_port))
             self.server_socket.listen(5)
-            print(f"Client {self.client_id} listening on port {self.listen_port}")
+            print(f"Client {self.client_id} listening on port {self.listen_port} and IP 0.0.0.{self.client_id}")
 
             while True:
                 try:
@@ -235,13 +237,50 @@ class Client:
         
         except Exception as e:
             raise ConnectionError(f"Error requesting torrent data: {e}")
+     
+    def get_free_peers(self, peers_connected):
+        """
+        Get the peers that are not blocked.
         
+        Args:
+            peers_connected (List[Peer]): The list of peers connected.
+        Returns:
+            free_peers (List[Peer]): The list of free peers.
+        """
+        free_peers = []
+        for peer in peers_connected:
+            if not peer.blocked:
+                free_peers.append(peer)
+                
+        return free_peers   
+
+    def download_piece(self, piece, peers_connected, pieces_controller, output_path):
+        while not piece.is_complete():
+            data = pieces_controller.get_empty_block(piece.piece_index)
+            if not data:
+                continue
+
+            piece_index, block_offset, block = data
+            
+            free_peers = self.get_free_peers(peers_connected)
+            if not free_peers:
+                continue
+            
+            random_peer = random.choice(free_peers)
+
+            try:
+                block_data = random_peer.request_piece(piece_index, block_offset, block.block_size)
+                pieces_controller.receive_block(piece_index=piece_index, block_offset=block_offset, data=block_data)
+            except Exception as e:
+                print(f"Error downloading block: {e}")
+
+        if piece.set_total_data():
+            piece.save_piece(output_path)
+            print(f"Piece {piece.piece_index} downloaded from peer: {random_peer.id}")
+
     def start_download(self, torrent_data):
-        """
-        Start downloading the torrent data from peers.
-        """
         print("Log: comenzó la descarga")
-        
+
         data = TorrentInfo(
             announce="",
             info_hash=torrent_data["info_hash"],
@@ -252,45 +291,34 @@ class Client:
         )
 
         peers = torrent_data["peers"]
-        onepeer = Peer(peers[0]["peer_id"], peers[0]["ip"], peers[0]["port"])
-        onepeer.connect()
-        
-        hash_bytes = bytes.fromhex(torrent_data["info_hash"])
-        onepeer.send_message(Handshake(info_hash=hash_bytes).to_bytes())
-        
+        peers_connected = []
+        for peer in peers:
+            p = Peer(peer["peer_id"], peer["ip"], peer["port"])
+            try:
+                p.connect()
+                hash_bytes = bytes.fromhex(torrent_data["info_hash"])
+                p.send_message(Handshake(info_hash=hash_bytes).to_bytes())
+                peers_connected.append(p)
+            except Exception as e:
+                print(f"Error connecting to peer {peer['peer_id']}: {e}")
+
         output_path = os.path.join(self.download_path, torrent_data["name"])
-        
         pieces_controller = PieceController(data, output_path)
-        
-        print("Log: comenzó a pedir bloques")
-        
-        while not pieces_controller.is_complete():
-            for piece in pieces_controller.pieces:
-                index = piece.piece_index
-                
-                if pieces_controller.bitfield[index]:
-                    continue
-                
-                data = pieces_controller.get_empty_block(index)
-                # print("Log: pidiendo bloque: ", data)
-                
-                if not data:
-                    continue
-                
-                piece_index, block_offset, block = data
-                # message = Request(piece_index, block_offset, block.block_size).to_bytes()
-                
-                dat = onepeer.request_piece(piece_index, block_offset, block.block_size)
-                
-                pieces_controller.receive_block(piece_index=piece_index, block_offset=block_offset, data=dat)
-                # piece.set_block(block_offset, block)
-                
-                if piece.is_complete():
-                    print(f"Piece {piece.piece_index} downloaded")
-                    if piece.set_total_data():
-                        piece.save_piece(output_path)
-                        print(f"Piece {piece_index} saved")
+
+        print("Log: comenzó la descarga")
+
+        threads = []
+        for piece in pieces_controller.pieces:
+            if not pieces_controller.bitfield[piece.piece_index]:
+                t = threading.Thread(target=self.download_piece, args=(piece, peers_connected, pieces_controller, output_path))
+                threads.append(t)
+                t.start()
+
+        for t in threads:
+            t.join()
+
         print("Log: descarga completada")
+
                 
     def close(self):
         """

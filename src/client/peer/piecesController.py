@@ -1,6 +1,7 @@
 import math
 import os
 from typing import List
+from threading import Lock
 
 from client.peer.block import Block, BLOCK_SIZE, State
 from client.peer.piece import Piece
@@ -13,6 +14,7 @@ class PieceController:
         self.number_of_pieces = math.ceil(torrent.length / torrent.piece_length)
         self.bitfield = [False] * self.number_of_pieces
         self.output_path = path
+        self.lock = Lock()
         
         self._generate_pieces()
         
@@ -34,14 +36,16 @@ class PieceController:
         return all([piece.is_downloaded for piece in self.pieces])
     
     def receive_block(self, piece_index: int, block_offset: int, data: bytes):
-        self.pieces[piece_index].set_block(block_offset, data)
-        
-        if self.pieces[piece_index].is_complete():
-            self.pieces[piece_index].is_downloaded = True
+        with self.lock:
+            self.pieces[piece_index].set_block(block_offset, data)
+
+            if self.pieces[piece_index].is_complete():
+                self.pieces[piece_index].is_downloaded = True
             
     def get_empty_block(self, piece_index):
-        for i, block in enumerate(self.pieces[piece_index].blocks):
-            if block.state == State.EMPTY:
-                return piece_index, i, block
+        with self.lock:
+            for i, block in enumerate(self.pieces[piece_index].blocks):
+                if block.state == State.EMPTY:
+                    return piece_index, i, block
         return None
     

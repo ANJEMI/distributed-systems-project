@@ -9,6 +9,7 @@ class Peer:
         self.ip = ip
         self.port = port
         self.socket = None
+        self.blocked = False
 
     def connect(self):
         """
@@ -58,6 +59,8 @@ class Peer:
         """
         try:
             # Formato del mensaje request: <len=0013><id=6><index><begin><length>
+            self.blocked = True
+
             message = Request(index, begin, length).to_bytes()
             self.socket.send(message)
             
@@ -70,6 +73,8 @@ class Peer:
             
             if piece_index != index or block_offset != begin:
                 raise IOError(f"Invalid piece received from peer {self.id}")
+            
+            self.blocked = False
             
             return block
             
