@@ -1,5 +1,6 @@
 import socket
 import struct
+from .messages import *
 from typing import List
 
 class Peer:
@@ -15,8 +16,9 @@ class Peer:
         """
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print(f"log comenzo conexion con peer {self.id}")
             self.socket.connect((self.ip, self.port))
-            print(f"Connected to peer {self.id} at {self.ip}:{self.port}")
+            print(f"log Connected to peer {self.id} at {self.ip}:{self.port}")
         except Exception as e:
             raise ConnectionError(f"Error connecting to peer {self.id}: {e}")
 

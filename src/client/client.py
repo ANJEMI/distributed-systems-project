@@ -1,3 +1,6 @@
+import os
+import threading
+import struct
 import socket
 import json
 from typing import Dict, List
@@ -5,9 +8,7 @@ from client.peer import Peer
 from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
 from torrents.torrent_info import TorrentInfo
-import os
-import threading
-import struct
+from .messages import *
 
 class Client:
     def __init__(self, client_id: int, listen_port = 6881):
@@ -27,7 +28,7 @@ class Client:
         if not os.path.exists(self.upload_path):
             os.makedirs(self.upload_path)
             
-        self.listen_port = listen_port
+        self.listen_port = listen_port + self.client_id
         self.server_socket = None
         
         # Dict[info_hash, Dict[piece_index, piece_data]]
@@ -61,63 +62,73 @@ class Client:
                 
     
     def start_peer_mode(self):
-        # TODO
         """
-        Start the client in peer mode to handle incoming requests. 
+        Start the client in peer mode to handle incoming requests.
         """
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            ip = '0.0.0.' + str(self.client_id)
+            ip = '0.0.0.0'  # Escuchar en todas las interfaces
             self.server_socket.bind((ip, self.listen_port))
             self.server_socket.listen(5)
             print(f"Client {self.client_id} listening on port {self.listen_port}")
 
             # Thread para aceptar múltiples conexiones entrantes
             threading.Thread(target=self.handle_incoming_connections, daemon=True).start()
+
+            # Mantener el programa activo
+            while True:
+                pass  # Alternativamente, espera entrada del usuario o implementa una señal de parada
         except Exception as e:
             raise RuntimeError(f"Error starting peer mode: {e}")
-    
 
     def handle_incoming_connections(self):
         """
         Handle incoming connections from other peers.
         """
         while True:
-            conn, addr = self.server_socket.accept()
-            print(f"Incoming connection from {addr}")
-            # Thread para manejar cada conexión
-            
-            threading.Thread(target=self.handle_connection, args=(conn, addr), daemon=True).start()
-            
+            try:
+                conn, addr = self.server_socket.accept()
+                print(f"Incoming connection from {addr}")
+                # Thread para manejar cada conexión
+                threading.Thread(target=self.handle_connection, args=(conn, addr), daemon=True).start()
+            except Exception as e:
+                print(f"Error accepting connection: {e}")
+
     def handle_connection(self, conn, addr):
-        # TODO
         """
         Handle a connection from a peer.
         """
         try:
-            data = conn.recv(1024).decode()
-
+            data = conn.recv(1024)  # Recibir datos del cliente
             if not data:
+                print(f"No data received from {addr}")
                 return
-            
-            # process request message
-            request = struct.unpack(">IbIII", data) # <len=0013><id=6><index><begin><length>
-            _, message_id, index, begin, length = request
-            
-            if message_id == 6:  # ID de mensaje 'request'
-                piece_data = self.files.get(index, b"")[begin:begin + length]
 
-                # Enviar respuesta (mensaje 'piece')
-                # Formato: <len=0009+X><id=7><index><begin><block>
-                response = struct.pack(">IbII", 9 + len(piece_data), 7, index, begin) + piece_data
-                conn.send(response)
-                print(f"Sent piece {index} (offset: {begin}, length: {length})")
-                
+            # Procesar el mensaje recibido
+            # Formato esperado: <len=0013><id=6><index><begin><length>
+            # todo refactorizar despues y asignar random
+            if len(data) >= 13:  # Verificar que el tamaño sea al menos el esperado
+                request = struct.unpack(">IbIII", data[:13])
+                _, message_id, index, begin, length = request
+
+                if message_id == 6:  # Solicitud de pieza
+                    # Obtener los datos del archivo solicitados
+                    piece_data = self.files.get(index, b"")[begin:begin + length]
+
+                    # Construir respuesta: <len=0009+X><id=7><index><begin><block>
+                    response = struct.pack(">IbII", 9 + len(piece_data), 7, index, begin) + piece_data
+                    conn.sendall(response)  # Enviar respuesta al cliente
+                    print(f"Sent piece {index} (offset: {begin}, length: {length}) to {addr}")
+                else:
+                    print(f"Unhandled message ID: {message_id} from {addr}")
+            else:
+                print(f"Invalid request format from {addr}: {data}")
+
         except Exception as e:
             print(f"Error handling connection from {addr}: {e}")
         finally:
-            conn.close()
-            
+            conn.close()  # Cerrar la conexión para liberar recursos
+
         
     def connect_to_tracker(self, tracker_ip, tracker_port):
         """
@@ -211,56 +222,75 @@ class Client:
         except Exception as e:
             raise ConnectionError(f"Error requesting torrent data: {e}")
         
-    def start_download(self, info_hash):
-        # TODO
+    def start_download(self, torrent_data):
         """
         Start downloading the torrent data from peers.
         """
-        torrent_data = self.torrents_downloading.get(info_hash)
+        print("Log: comenzó la descarga")
 
-        if not torrent_data:
-            raise ValueError(f"The torrent with ID '{info_hash}' was not found in the client.")
-        
+        # Extraer la información del torrent
+        info_hash = torrent_data["info_hash"]
         pieces = torrent_data["pieces"]
         peers = torrent_data["peers"]
         piece_size = torrent_data["piece_size"]
-        
-        for peer_info in peers:
-            peer = Peer(peer_info["peer_id"], peer_info["ip"], peer_info["port"])
-            peer.connect()
-            for piece_index, piece_hash in enumerate(pieces):
-                peer = Peer(peer_info["peer_id"], peer_info["ip"], peer_info["port"])
-                try:
-                    peer.connect()
-                    
-                    for index, piece_hash in enumerate(pieces):
-                        if self.pieces_downloaded[info_hash][index]:
-                            continue
-                        
-                        peer.request_piece(index,0,piece_size)
-                        data = peer.receive_piece(piece_size)
-                        
-                        self.pieces_downloaded[info_hash][index] = True
-                        print(f"Downloaded piece {index} from peer {peer.id}")
 
-                        # save data in download folder
-                        file_path = os.path.join(self.download_path, f"{info_hash}_{index}")
-                        with open(file_path, "wb") as file:
-                            file.write(data)
-                        # self.files[info_hash] = self.files.get(info_hash, {})
-                        # self.files[info_hash][index] = data
-                        
-                    peer.close()
-                    break
-            
-                except Exception as e:
-                    print(f"Error downloading piece from peer {peer.id}: {e}")
-                    peer.close()
-                    continue
-        
-        # build the file
+        # Crear una estructura para almacenar los datos descargados
+        downloaded_pieces = [None] * len(pieces)
+
+        # Iterar sobre los peers
+        for peer_info in peers:
+            peer = Peer(peer_info["peer_id"], "0.0.0.0", peer_info["port"])
+            try:
+                peer.connect()
+
+                for piece_index, piece_hash in enumerate(pieces):
+                    # Saltar si ya se descargó esta pieza
+                    if downloaded_pieces[piece_index] is not None:
+                        continue
+
+                    # Dividir la pieza en bloques
+                    num_blocks = (piece_size + 16383) // 16384  # Tamaño máximo de bloque es 16 KiB
+                    piece_data = bytearray(piece_size)
+
+                    for block_index in range(num_blocks):
+                        block_offset = block_index * 16384
+                        block_length = min(16384, piece_size - block_offset)
+
+                        # Enviar un mensaje de solicitud (Request)
+                        request = Request(piece_index, block_offset, block_length)
+                        peer.socket.sendall(request.to_bytes())
+                        print(f"Log: Solicitud enviada para pieza {piece_index}, bloque {block_index}")
+
+                        # Recibir el mensaje de pieza (Piece)
+                        response = peer.socket.recv(5 + 4 + 4 + block_length)
+                        piece_msg = Piece.from_bytes(response)
+
+                        if piece_msg.piece_index != piece_index or piece_msg.block_offset != block_offset:
+                            raise ValueError(f"Error en el bloque recibido de la pieza {piece_index}")
+
+                        # Guardar el bloque en la pieza
+                        piece_data[block_offset:block_offset + block_length] = piece_msg.block
+
+                    # Verificar el hash de la pieza descargada
+                    if hashlib.sha1(piece_data).digest() != piece_hash:
+                        raise ValueError(f"Hash incorrecto para la pieza {piece_index}")
+
+                    # Guardar la pieza descargada
+                    downloaded_pieces[piece_index] = piece_data
+                    print(f"Log: Pieza {piece_index} descargada correctamente")
+
+                peer.close()
+                break
+
+            except Exception as e:
+                print(f"Error descargando pieza del peer {peer.id}: {e}")
+                peer.close()
+                continue
+
+        # Construir el archivo final
         self.build_file(info_hash)
-        print("Download torrent "+ info_hash + " completed")
+        print("Descarga del torrent " + info_hash + " completada")
+
         
     def build_file(self,info_hash):
         # TODO
@@ -343,7 +373,7 @@ class Client:
             "peer_info": {
                 "peer_id": self.client_id,
                 "ip": "0.0.0." + str(self.client_id),
-                "port": self.listen_port
+                "port": self.listen_port 
             }    
         }
         
