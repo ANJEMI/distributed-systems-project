@@ -54,7 +54,7 @@ class Tracker:
 
         # Check if the torrent already exists in the tracker
         existing_torrent = next((torrent for torrent in tracker_data["torrents"]
-                                if torrent["pieces"] == torrent_metadata["pieces"]), None)
+                                if torrent["info_hash"] == torrent_metadata["info_hash"]), None)
 
         if existing_torrent:
             peer_entry = {
@@ -68,7 +68,7 @@ class Tracker:
         else:
             # Create a new torrent entry if it does not exist
             new_torrent = {
-                # "torrent_id": torrent_metadata["torrent_id"],
+                "info_hash": torrent_metadata["info_hash"],
                 "name": torrent_metadata["name"],
                 "size": torrent_metadata["size"],
                 "piece_size": torrent_metadata["piece_size"],
@@ -89,12 +89,12 @@ class Tracker:
             json.dump(tracker_data, file, indent=4)
         print("Tracker successfully updated.")
 
-    def get_torrent_info(self, torrent_pieces):
+    def get_torrent_info(self, info_hash):
         """
         Retrieves the information of a torrent from the tracker's JSON file.
 
         Args:
-            torrent_pieces (str): ID of the torrent to retrieve.
+            info_hash (str): ID of the torrent to retrieve.
         Returns:
             dict: Information of the torrent.
         """
@@ -107,7 +107,7 @@ class Tracker:
             tracker_data = json.load(file)
 
         torrent_info = next((torrent for torrent in tracker_data["torrents"]
-                            if torrent["pieces"] == torrent_pieces), None)
+                            if torrent["info_hash"] == info_hash), None)
 
         if not torrent_info:
             raise ValueError(f"The torrent was not found in the tracker.")
@@ -119,7 +119,7 @@ class Tracker:
         Starts the tracker server. Receives messages from clients and sends
         The message format (JSON) possibles are:
         - Register a new torrent: {"type": "register_torrent", "torrent_metadata": {...}, "peer_info": {...}}
-        - Get torrent info: {"type": "get_torrent", "pieces": "..."}
+        - Get torrent info: {"type": "get_torrent", "info_hash": "..."}
 
         Args:
             host (str): IP address to bind the server to (default is 0.0.0.0.)
@@ -155,8 +155,8 @@ class Tracker:
                     client_socket.sendall(b"Torrent successfully registered.")
                     
                 elif message["type"] == "get_torrent":
-                    piecesHash = message["pieces"]
-                    torrent_info = self.get_torrent_info(piecesHash)
+                    info_hash = message["info_hash"]
+                    torrent_info = self.get_torrent_info(info_hash)
                     print(f"Sending torrent info: {torrent_info}")
                     client_socket.sendall(json.dumps(torrent_info).encode())
                 else:

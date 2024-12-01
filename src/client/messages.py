@@ -128,7 +128,76 @@ class NotInterested(MessageNoPayload):
     def __init__(self):
         super().__init__(3)
 
+class Have(Message):
+    """ HAVE 
+    <length><message_id><piece_index>
+    length = 5 (4 bytes)
+    message_id = 4 (1 byte)
+    piece_index = zero based index of the piece (4 bytes) 
+    """
 
+    def __init__(self, piece_index):
+        super().__init__()
+        
+        self.piece_index = piece_index
+        self.payload_len = 5
+        self.message_id = 4
+        self.length = 4 + self.payload_len
+    
+    def to_bytes(self):
+        return super().to_bytes()
+    
+    def from_bytes():
+        pass
 
+class BitField(Message):
+    """ BitField
+    <length><message_id><bitfield>
+    
+    payload_len = 1 + bitfield_size (4 bytes)
+    message id = 5 (1 byte)
+    bitfield = bitfield representing downloaded pieces (bitfield_size bytes)
+    """
+    
+    def __init__(self, bitfield):
+        super().__init__()
+        
+        self.bitfield = bitfield
+        self.bitfield_bytes = bitfield.tobytes()
+        self.bitfield_length = len(self.bitfield_bytes)
+        
+        self.payload_len = 1 + self.bitfield_length
+        self.length = 4 + self.payload_length
 
-
+    def to_bytes(self):
+        return super().to_bytes()
+    
+    def from_bytes(self):
+        pass
+    
+class Request(Message):
+    """ Request
+    <length><message_id><piece_index><block_offset><block_length>
+    payload_len = 13 (4 bytes)
+    message_id = 6 (1 byte)
+    piece_index = zero based piece index (4 bytes)
+    block_offset = zero based of the requested block (4 bytes)
+    block_length = length of the requested block (4 bytes)
+    """
+    
+    def __init__(self, piece_index, block_offset, block_length):
+        super().__init__()
+        
+        self.piece_index = piece_index
+        self.block_offset = block_offset
+        self.block_length = block_length
+        
+        self.payload_len = 13
+        self.lenth = 4 + self.payload_len
+        
+    def to_bytes(self):
+        return super().to_bytes()
+    
+    def from_bytes(self):
+        pass
+    

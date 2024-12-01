@@ -16,24 +16,6 @@ class TorrentCreator:
         """
         self.tracker_url = tracker_url
         self.piece_length = piece_length
-        
-    # def generate_pieces(self, file_path: str) -> List[bytes]:
-    #     """
-    #     Generate the pieces of the torrent file
-        
-    #     :param file_path: The path to the file to generate the pieces for
-    #     :return pieces: A list of pieces
-    #     """
-    #     pieces = []
-        
-    #     with open(file_path, "rb") as f:
-    #         while True:
-    #             piece = f.read(self.piece_length)
-    #             if not piece:
-    #                 break
-    #             pieces.append(piece)
-        
-    #     return pieces
     
     def encode_pieces(self, file_path) -> bytes:
         """
@@ -51,7 +33,6 @@ class TorrentCreator:
                 
         return pieces
 
-    
     def create_torrent(self, file_path: str, output_path:str = None) -> str:
         """
         Create a torrent file
@@ -60,8 +41,10 @@ class TorrentCreator:
         :return output_path: The path to the created torrent file
         """
         
-        file_name = os.path.basename(file_path)
-        file_size = os.path.getsize(file_path)
+        print(f"Creating torrent file for {file_path}")
+        
+        file_name = os.path.basename(str(file_path))
+        file_size = os.path.getsize(str(file_path))
         
         if output_path is None:
             output_path = os.path.join(os.path.dirname(file_path), os.path.splitext(file_name)[0] + ".torrent")
@@ -78,8 +61,14 @@ class TorrentCreator:
                 "pieces": encoded_pieces
             }
         }
-    
+
+        info_hash = hashlib.sha1(bencodepy.encode(torrent_data["info"])).hexdigest()
+
+        torrent_data["info"]["info_hash"] = info_hash
+        
         with open(output_path, "wb") as f:
             f.write(bencodepy.encode(torrent_data))
         
+        print(f"Torrent file with info hash {info_hash} created at {output_path}")
+                
         return output_path

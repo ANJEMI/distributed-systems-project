@@ -14,7 +14,7 @@ class Client:
         self.client_id = client_id
         self.tracker_socket = None
         self.torrents_downloading = {}
-        # Dict[torrent_id, List[bool]] where the index of the list represents a piece
+        # Dict[info_hash, List[bool]] where the index of the list represents a piece
         self.pieces_downloaded: Dict[str,List[bool]]  = {}
         
         # Path is the actual path of this file concatenated with the download folder
@@ -30,11 +30,12 @@ class Client:
         self.listen_port = listen_port
         self.server_socket = None
         
-        # Dict[torrent_id, Dict[piece_index, piece_data]]
+        # Dict[info_hash, Dict[piece_index, piece_data]]
         self.uploaded_files = {}
         self.find_uploaded_files()
         
     def find_uploaded_files(self):
+        # TODO
         """
         Find the files that the client has uploaded.
         """
@@ -47,19 +48,20 @@ class Client:
             
         for file_name in os.listdir(torrents_path):
             if file_name.endswith(".torrent"):
-                torrent_id = file_name.split(".")[0]
-                torrent_json_data = os.path.join(torrents_path,torrent_id + ".json")
+                torrent_name = file_name.split(".")[0]
+                torrent_json_data = os.path.join(torrents_path,torrent_name + ".json")
                 if os.path.exists(torrent_json_data):
                     with open(torrent_json_data, "r") as file:
                         torrent_data = json.load(file)
                         path = os.path.join(data_path, torrent_data["name"])
                         if os.path.exists(path):
-                            self.uploaded_files[torrent_id] = path
-                            print(f"Found uploaded file {torrent_data['name']} with ID {torrent_id}")
+                            self.uploaded_files[torrent_name] = path
+                            print(f"Found uploaded file {torrent_data['name']} with name {torrent_name}")
                     
                 
     
     def start_peer_mode(self):
+        # TODO
         """
         Start the client in peer mode to handle incoming requests. 
         """
@@ -88,6 +90,7 @@ class Client:
             threading.Thread(target=self.handle_connection, args=(conn, addr), daemon=True).start()
             
     def handle_connection(self, conn, addr):
+        # TODO
         """
         Handle a connection from a peer.
         """
@@ -136,7 +139,7 @@ class Client:
         except Exception as e:
             raise ConnectionError(f"Error connecting to tracker: {e}")
 
-    def request_torrent_data(self, pieces):
+    def request_torrent_data(self, info_hash):
         """
         Sends a request (JSON) to the tracker server for the torrent data.
         Receives the torrent data from the tracker server.
@@ -144,20 +147,21 @@ class Client:
         Request format:
         {
             "type": "get_torrent",
-            "pieces": "hash"
+            "info_hash": "hash"
         }
         
         
         Args:
-            pieces (str): ID of the torrent to request.
+            info_hash (str): The info hash of the torrent.
         Returns:
             response: The torrent data from the tracker server.
         
         Example response:
             {
+              "info_hash": "hash",
               "name": "Torrent de prueba",
               "size": 1024,
-              "pieces": ["a", "b", "c"],
+              "pieces": "hash1hash2hash3",
               "seeders": 1,
               "leechers": 0,
               "peers": [
@@ -176,7 +180,7 @@ class Client:
         try:
             request = {
                 "type": "get_torrent",
-                "pieces": pieces
+                "info_hash": info_hash
             }
 
             request = json.dumps(request)
@@ -187,25 +191,26 @@ class Client:
 
             response = json.loads(response)
 
-            self.torrents_downloading[pieces] = response
+            self.torrents_downloading[info_hash] = response
             
             length = int(response["size"]) // int(response["piece_size"])
             
-            self.pieces_downloaded[pieces] = [False] * length
+            self.pieces_downloaded[info_hash] = [False] * length
 
             return response
         
         except Exception as e:
             raise ConnectionError(f"Error requesting torrent data: {e}")
         
-    def start_download(self, torrent_id):
+    def start_download(self, info_hash):
+        # TODO
         """
         Start downloading the torrent data from peers.
         """
-        torrent_data = self.torrents_downloading.get(torrent_id)
+        torrent_data = self.torrents_downloading.get(info_hash)
 
         if not torrent_data:
-            raise ValueError(f"The torrent with ID '{torrent_id}' was not found in the client.")
+            raise ValueError(f"The torrent with ID '{info_hash}' was not found in the client.")
         
         pieces = torrent_data["pieces"]
         peers = torrent_data["peers"]
@@ -220,21 +225,21 @@ class Client:
                     peer.connect()
                     
                     for index, piece_hash in enumerate(pieces):
-                        if self.pieces_downloaded[torrent_id][index]:
+                        if self.pieces_downloaded[info_hash][index]:
                             continue
                         
                         peer.request_piece(index,0,piece_size)
                         data = peer.receive_piece(piece_size)
                         
-                        self.pieces_downloaded[torrent_id][index] = True
+                        self.pieces_downloaded[info_hash][index] = True
                         print(f"Downloaded piece {index} from peer {peer.id}")
 
                         # save data in download folder
-                        file_path = os.path.join(self.download_path, f"{torrent_id}_{index}")
+                        file_path = os.path.join(self.download_path, f"{info_hash}_{index}")
                         with open(file_path, "wb") as file:
                             file.write(data)
-                        # self.files[torrent_id] = self.files.get(torrent_id, {})
-                        # self.files[torrent_id][index] = data
+                        # self.files[info_hash] = self.files.get(info_hash, {})
+                        # self.files[info_hash][index] = data
                         
                     peer.close()
                     break
@@ -245,21 +250,22 @@ class Client:
                     continue
         
         # build the file
-        self.build_file(torrent_id)
-        print("Download torrent "+ torrent_id + " completed")
+        self.build_file(info_hash)
+        print("Download torrent "+ info_hash + " completed")
         
-    def build_file(self,torrent_id):
+    def build_file(self,info_hash):
+        # TODO
         """
         Build the file from the pieces downloaded.
         """
-        pieces = self.torrents_downloading[torrent_id]["pieces"]
-        piece_size = self.torrents_downloading[torrent_id]["piece_size"]
+        pieces = self.torrents_downloading[info_hash]["pieces"]
+        piece_size = self.torrents_downloading[info_hash]["piece_size"]
         
-        file_path = os.path.join(self.download_path, f"{torrent_id}.txt")
+        file_path = os.path.join(self.download_path, f"{info_hash}.txt")
         
         with open(file_path, "wb") as file:
             for index, piece_hash in enumerate(pieces):
-                piece_file_path = os.path.join(self.download_path, f"{torrent_id}_{index}")
+                piece_file_path = os.path.join(self.download_path, f"{info_hash}_{index}")
                 with open(piece_file_path, "rb") as piece_file:
                     file.write(piece_file.read())
         
@@ -296,9 +302,10 @@ class Client:
             
             
         torrent_creator = TorrentCreator(tracker_ip, tracker_port)
-        output_path = torrent_creator.create_torrent(file_path, output_path)
         
-        print(f"Torrent file created at: {output_path}")
+        
+        output_path = torrent_creator.create_torrent(file_path=str(file_path), output_path=output_path)
+        
         return output_path
     
     def upload_torrent_file(self, torrent_file_path):
@@ -318,6 +325,7 @@ class Client:
             "type": "register_torrent",
             "torrent_metadata": 
                 {
+                    "info_hash": torrent_info.info_hash,
                     "name": torrent_info.name,
                     "size": torrent_info.length,
                     "piece_size": torrent_info.piece_length,
@@ -353,8 +361,8 @@ class Client:
         print("Client console application")
         print("Commands:")
         print("1. connect <tracker_ip> <tracker_port>")
-        print("2. get_torrent <torrent_id>")
-        print("3. download <torrent_id>")
+        print("2. get_torrent <info_hash>")
+        print("3. download <info_hash>")
         print("4. create_torrent <file_path>")
         print("5. upload_torrent <torrent_file_path>")
         print("6. exit")
@@ -370,7 +378,7 @@ class Client:
             elif command[0] == "download":
                 self.start_download(command[1])
             elif command[0] == "create_torrent":
-                self.create_torrent_file(command[1])
+                self.create_torrent_file(file_path=str(command[1]))
             elif command[0] == "upload_torrent":
                 self.upload_torrent_file(command[1])
             elif command[0] == "exit":
