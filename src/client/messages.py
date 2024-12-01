@@ -19,7 +19,7 @@ class Message:
         raise NotImplementedError()
     
     @classmethod
-    def from_bytes(cls, message):
+    def from_bytes(self, message):
         raise NotImplementedError()
     
 class Handshake(Message):
@@ -67,26 +67,21 @@ class KeepAlive(Message):
     
     """
     
-    def __init__(self):
-        super().__init__()
-        
-        self.payload_len = 0
-        self.length = 4
-    
     def to_bytes(self):
-        return pack(">I", self.payload_len)
+        return pack(">I", 0)
     
     @classmethod
     def from_bytes(self, message):
-        payload_len = unpack(">I", message[:self.length])
+        payload_len = unpack(">I", message[:4])[0]
         
-        if payload_len != self.payload_len:
+        if payload_len != 0:
             raise WrongMessageException("Not a KeepAlive Message")
         
         return self()
     
 class MessageNoPayload(Message):
     """ 
+    Message with no payload
         <len=0001><id=n>
         n=0 choke
         n=1 unchoke
@@ -95,20 +90,18 @@ class MessageNoPayload(Message):
     """
     def __init__(self, message_id):
         super().__init__()
-        
-        self.payload_len = 1
-        self.length = 5
+
         self.message_id = message_id
         
     def to_bytes(self):
-        return pack(">IB", self.payload_length, self.message_id)
+        return pack(">IB", 1, self.message_id)
 
     @classmethod
     def from_bytes(self, message):
-        payload_len, message_id = unpack(">IB", message[:self.total_length])
+        payload_len, message_id = unpack(">IB", message[:5])
         
-        if message_id != self.message_id:
-            raise WrongMessageException("Incorrect message id")
+        if payload_len != 1:
+            raise WrongMessageException("Invalid MessageNoPayload length")
         
         return self(message_id)
   
@@ -129,75 +122,157 @@ class NotInterested(MessageNoPayload):
         super().__init__(3)
 
 class Have(Message):
-    """ HAVE 
-    <length><message_id><piece_index>
-    length = 5 (4 bytes)
-    message_id = 4 (1 byte)
-    piece_index = zero based index of the piece (4 bytes) 
+    """ HAVE message
+    <length=5><message_id=4><piece_index>
     """
 
     def __init__(self, piece_index):
         super().__init__()
         
         self.piece_index = piece_index
-        self.payload_len = 5
-        self.message_id = 4
-        self.length = 4 + self.payload_len
     
     def to_bytes(self):
-        return super().to_bytes()
+        return pack(">IBI", 5, 4, self.piece_index)
     
-    def from_bytes():
-        pass
+    def from_bytes(self,message):
+        length, message_id, piece_index = unpack(">IBI", message[:9])
+        
+        if length != 5 or message_id != 4:
+            raise WrongMessageException("Invalid Have message")
+        
+        return self(piece_index)
 
 class BitField(Message):
-    """ BitField
-    <length><message_id><bitfield>
-    
-    payload_len = 1 + bitfield_size (4 bytes)
-    message id = 5 (1 byte)
-    bitfield = bitfield representing downloaded pieces (bitfield_size bytes)
+    """ BitField message
+    <length><message_id=5><bitfield>
     """
     
     def __init__(self, bitfield):
         super().__init__()
-        
         self.bitfield = bitfield
-        self.bitfield_bytes = bitfield.tobytes()
-        self.bitfield_length = len(self.bitfield_bytes)
-        
-        self.payload_len = 1 + self.bitfield_length
-        self.length = 4 + self.payload_length
-
-    def to_bytes(self):
-        return super().to_bytes()
     
-    def from_bytes(self):
-        pass
+    def to_bytes(self):
+        bitfield_bytes = self.bitfield
+        length = 1 + len(bitfield_bytes)
+        return pack(">IB", length, 5) + bitfield_bytes
+    
+    @classmethod
+    def from_bytes(self, message):
+        length, message_id = unpack(">IB", message[:5])
+        if message_id != 5:
+            raise WrongMessageException("Invalid BitField message")
+        bitfield = message[5:length + 4]
+        return self(bitfield)
     
 class Request(Message):
-    """ Request
-    <length><message_id><piece_index><block_offset><block_length>
-    payload_len = 13 (4 bytes)
-    message_id = 6 (1 byte)
-    piece_index = zero based piece index (4 bytes)
-    block_offset = zero based of the requested block (4 bytes)
-    block_length = length of the requested block (4 bytes)
+    """ Request message
+    <length=13><message_id=6><piece_index><block_offset><block_length>
     """
-    
     def __init__(self, piece_index, block_offset, block_length):
         super().__init__()
-        
         self.piece_index = piece_index
         self.block_offset = block_offset
         self.block_length = block_length
-        
-        self.payload_len = 13
-        self.lenth = 4 + self.payload_len
-        
+    
     def to_bytes(self):
-        return super().to_bytes()
+        return pack(">IBIII", 13, 6, self.piece_index, self.block_offset, self.block_length)
     
-    def from_bytes(self):
-        pass
-    
+    @classmethod
+    def from_bytes(self, message):
+        length, message_id, piece_index, block_offset, block_length = unpack(">IBIII", message[:17])
+        if length != 13 or message_id != 6:
+            raise WrongMessageException("Invalid Request message")
+        return self(piece_index, block_offset, block_length)
+
+
+# ---
+
+class Piece(Message):
+    """
+    PIECE = <length><message_id=7><piece_index><block_offset><block>
+        - length = 9 + block length (4 bytes)
+        - piece_index = zero-based piece index (4 bytes)
+        - block_offset = zero-based of the requested block (4 bytes)
+        - block = block as a bytestring or bytearray (block_length bytes)
+    """
+    def __init__(self, piece_index, block_offset, block):
+        super().__init__()
+        self.piece_index = piece_index
+        self.block_offset = block_offset
+        self.block = block
+        self.block_length = len(block)
+
+    def to_bytes(self):
+        payload_len = 9 + self.block_length
+        
+        return pack(f">IBII{self.block_length}s",
+                    payload_len,
+                    7,  # message_id
+                    self.piece_index,
+                    self.block_offset,
+                    self.block)
+
+    @classmethod
+    def from_bytes(self, message):
+        payload_len, message_id = unpack(">IB", message[:5])
+        block_length = payload_len - 9
+        piece_index, block_offset, block = unpack(f">II{block_length}s", message[5:13 + block_length])
+        
+        if message_id != 7:
+            raise WrongMessageException("Not a Piece message")
+        
+        return self(piece_index, block_offset, block)
+
+
+class Cancel(Message):
+    """
+    CANCEL = <length=13><message_id=8><piece_index><block_offset><block_length>
+        - piece_index = zero-based piece index (4 bytes)
+        - block_offset = zero-based of the requested block (4 bytes)
+        - block_length = length of the requested block (4 bytes)
+    """
+    def __init__(self, piece_index, block_offset, block_length):
+        super().__init__()
+        self.piece_index = piece_index
+        self.block_offset = block_offset
+        self.block_length = block_length
+
+    def to_bytes(self):
+        return pack(">IBIII",
+                    13,  # payload_len
+                    8,   # message_id
+                    self.piece_index,
+                    self.block_offset,
+                    self.block_length)
+
+    @classmethod
+    def from_bytes(self, message):
+        payload_len, message_id, piece_index, block_offset, block_length = unpack(">IBIII", message[:17])
+        
+        if payload_len != 13 or message_id != 8:
+            raise WrongMessageException("Not a Cancel message")
+        
+        return self(piece_index, block_offset, block_length)
+
+
+class Port(Message):
+    """
+    PORT = <length=5><message_id=9><port_number>
+        - port_number = listen_port (4 bytes)
+    """
+    def __init__(self, listen_port):
+        super().__init__()
+        self.listen_port = listen_port
+
+    def to_bytes(self):
+        return pack(">IBI",
+                    5,  # payload_len 
+                    9,  # message_id
+                    self.listen_port)
+
+    @classmethod
+    def from_bytes(self, message):
+        payload_len, message_id, listen_port = unpack(">IBI", message[:9])
+        if payload_len != 5 or message_id != 9:
+            raise WrongMessageException("Not a Port message")
+        return self(listen_port)
