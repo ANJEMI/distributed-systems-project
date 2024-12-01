@@ -155,7 +155,7 @@ class Tracker:
             print("Closing connection with: ", client_socket.getpeername())
             client_socket.close()
 
-    def start_tracker(self, host="127.0.0.0", port=8080):
+    def start_tracker(self, host="0.0.0.0", port=8080):
         """
         Starts the tracker server. Receives messages from clients and sends
         The message format (JSON) possibles are:

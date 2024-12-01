@@ -1,6 +1,7 @@
 import socket
 import struct
-from client.messages import *
+from client.messages import Request
+from client.messages import Piece
 from typing import List, Optional
 
 class Peer:
