@@ -184,14 +184,23 @@ class Client:
             }
 
             request = json.dumps(request)
+            
+            message = request.encode()
+            header = struct.pack('>I', len(message))
+            
+            message = header + message
 
-            self.tracker_socket.send(request.encode())
-
-            response = self.tracker_socket.recv(1024).decode()
+            self.tracker_socket.send(message)
+            
+            header = self.tracker_socket.recv(4)
+            data_len = struct.unpack("!I", header)[0]
+            response = self.tracker_socket.recv(data_len).decode()
 
             response = json.loads(response)
 
             self.torrents_downloading[info_hash] = response
+            
+            print(f"Torrent data received. Info hash: {info_hash}")
             
             length = int(response["size"]) // int(response["piece_size"])
             
