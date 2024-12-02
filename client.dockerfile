@@ -12,4 +12,6 @@ COPY src/common /app/common
 COPY src/__init__.py /app/
 COPY src/client/main.py /app/
 
+EXPOSE 6881
+
 CMD ["/bin/sh"]

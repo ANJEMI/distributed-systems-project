@@ -7,6 +7,7 @@ import random
 import hashlib
 import random
 import hashlib
+import shutil
 from typing import Dict, List
 
 
@@ -22,6 +23,10 @@ class Client:
     def __init__(self, client_id: int, listen_port = 6881):
         self.client_id = client_id
         self.tracker_socket = None
+        
+        hostname = socket.gethostname()
+        self.client_ip = socket.gethostbyname(hostname) 
+        
         # self.torrents_downloading = {}
         # Dict[info_hash, List[bool]] where the index of the list represents a piece
         # self.pieces_downloaded: Dict[str,List[bool]]  = {}
@@ -31,10 +36,14 @@ class Client:
         self.download_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"downloads/client_{client_id}")
         self.upload_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"uploads/client_{client_id}")
         # print(self.download_path)
+        self.torrents_path = os.path.join(self.upload_path, "torrents")
+        self.data_path = os.path.join(self.upload_path, "data")
         if not os.path.exists(self.download_path):
             os.makedirs(self.download_path)
         if not os.path.exists(self.upload_path):
             os.makedirs(self.upload_path)
+        os.makedirs(self.torrents_path, exist_ok=True)
+        os.makedirs(self.data_path, exist_ok=True)
             
         # self.listen_port = listen_port + self.client_id
         self.listen_port = listen_port
@@ -48,14 +57,13 @@ class Client:
         """
         Find the files that the client has uploaded.
         """
-        torrents_path = os.path.join(self.upload_path, "torrents")
-        data_path = os.path.join(self.upload_path, "data")
+
         
-        for file_name in os.listdir(torrents_path):
+        for file_name in os.listdir(self.torrents_path):
             if file_name.endswith(".torrent"):
                 name_file = file_name.split(".")[0]
                 
-                torrent_file_path = os.path.join(torrents_path, file_name)
+                torrent_file_path = os.path.join(self.torrents_path, file_name)
                 torrent_data = TorrentReader.read_torrent(torrent_file_path)
                 torrent_info : TorrentInfo = TorrentReader.extract_info(torrent_data)
                 
@@ -66,13 +74,13 @@ class Client:
                 
                 self.uploaded_files[name_file] = data
         
-        for file_name in os.listdir(data_path):
+        for file_name in os.listdir(self.data_path):
             name_file = file_name.split(".")[0]
             print(name_file)
             if name_file not in self.uploaded_files:
                 pass
             else:
-                self.uploaded_files[name_file]["data_file_path"] = os.path.join(data_path, file_name)
+                self.uploaded_files[name_file]["data_file_path"] = os.path.join(self.data_path, file_name)
                     
         print("The following files have been uploaded:")
         for file_name in self.uploaded_files:
@@ -87,9 +95,9 @@ class Client:
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # ip = '0.0.0.0'
-            self.server_socket.bind(('127.0.0.'+ str(self.client_id), self.listen_port))
+            self.server_socket.bind((self.client_ip, self.listen_port))
             self.server_socket.listen(5)
-            print(f"Client {self.client_id} listening on port {self.listen_port} and IP 127.0.0.{self.client_id}")
+            print(f"Client {self.client_id} listening on port {self.listen_port} and IP {self.client_ip}")
 
             while True:
                 try:
@@ -226,16 +234,17 @@ class Client:
             header = self.tracker_socket.recv(4)
             data_len = struct.unpack("!I", header)[0]
             response = self.tracker_socket.recv(data_len).decode()
+            response = """{"in""" + response
 
             response = json.loads(response)
 
-            self.torrents_downloading[info_hash] = response
+            # self.torrents_downloading[info_hash] = response
             
             print(f"Torrent data received. Info hash: {info_hash}")
             
-            length = int(response["size"]) // int(response["piece_size"])
+            # length = int(response["size"]) // int(response["piece_size"])
             
-            self.pieces_downloaded[info_hash] = [False] * length
+            # self.pieces_downloaded[info_hash] = [False] * length
 
             return response
         
@@ -357,7 +366,9 @@ class Client:
         torrent_creator = TorrentCreator(tracker_ip, tracker_port)
         
         
-        output_path = torrent_creator.create_torrent(file_path=str(file_path), output_path=output_path)
+        output_path = torrent_creator.create_torrent(file_path=str(file_path), output_path=self.torrents_path)
+        shutil.copy(file_path, self.data_path)
+        self.find_uploaded_files()
         
         return output_path
     
@@ -386,7 +397,7 @@ class Client:
                 },
             "peer_info": {
                 "peer_id": self.client_id,
-                "ip": "0.0.0." + str(self.client_id),
+                "ip": str(self.client_ip),
                 "port": self.listen_port 
             }    
         }
@@ -404,6 +415,7 @@ class Client:
             
             response = self.tracker_socket.recv(1024).decode()
             print(f"Tracker response: {response}")
+            self.uploaded_files 
         except Exception as e:
             raise ConnectionError(f"Error uploading torrent file: {e}")
     
@@ -419,38 +431,43 @@ class Client:
         YELLOW = "\033[93m"
         BLUE = "\033[94m"
 
-        print(f"{self.BLUE}Client console application{self.RESET}")
-        print(f"{self.YELLOW}Commands:{self.RESET}")
+        print(f"{BLUE}Client console application{RESET}")
+        print(f"{YELLOW}Commands:{RESET}")
         print("1. connect <tracker_ip> <tracker_port>")
         print("2. get_torrent <info_hash>")
         print("3. download <info_hash>")
         print("4. create_torrent <file_path>")
         print("5. upload_torrent <torrent_file_path>")
-        print("6. exit")
+        print("6. drop_tracker")
+        print("7. start_seeding")
+        print("8. exit")
         
         while True:
-            command = input(f"{self.GREEN}Enter a command: {self.RESET}")
+            command = input(f"{GREEN}Enter a command: {RESET}")
             command = command.split()
             
-            try:
-                if command[0] == "connect":
-                    self.connect_to_tracker(command[1], int(command[2]))
-                elif command[0] == "get_torrent":
-                    self.request_torrent_data(command[1])
-                elif command[0] == "download":
-                    self.start_download(command[1])
-                elif command[0] == "create_torrent":
-                    self.create_torrent_file(file_path=str(command[1]))
-                elif command[0] == "upload_torrent":
-                    self.upload_torrent_file(command[1])
-                elif command[0] == "exit":
-                    self.close()
-                    break
-                else:
-                    print(f"{self.RED}Unknown command. Please try again.{self.RESET}")
-            except IndexError:
-                print(f"{self.RED}Error: Missing arguments. Please check your command.{self.RESET}")
-            except ValueError:
-                print(f"{self.RED}Error: Invalid value. Please check your input.{self.RESET}")
-            except Exception as e:
-                print(f"{self.RED}An error occurred: {e}{self.RESET}")
+            # try:
+            if command[0] == "connect":
+                self.connect_to_tracker(command[1], int(command[2]))
+            elif command[0] == "drop_tracker":
+                self.close()
+            elif command[0] == "get_torrent":
+                self.request_torrent_data(command[1])
+            elif command[0] == "start_seeding":
+                self.start_peer_mode()
+            elif command[0] == "download":
+                self.start_download(self.request_torrent_data(command[1]))
+            elif command[0] == "create_torrent":
+                self.create_torrent_file(file_path=str(command[1]))
+            elif command[0] == "upload_torrent":
+                self.upload_torrent_file(command[1])
+            elif command[0] == "exit":
+                break
+            else:
+                print(f"{RED}Unknown command. Please try again.{RESET}")
+            # except IndexError:
+            #     print(f"{RED}Error: Missing arguments. Please check your command.{RESET}")
+            # except ValueError:
+            #     print(f"{RED}Error: Invalid value. Please check your input.{RESET}")
+            # except Exception as e:
+            #     print(f"{RED}An error occurred: {e}{RESET}")

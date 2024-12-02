@@ -29,7 +29,7 @@ check_status
 
 # Configurar el router
 echo -e "${BLUE}${ROCKET} Setting up router...${RESET}"
-docker build -t router -f router/router.Dockerfile .
+docker build -t router -f src/router/router.Dockerfile .
 check_status
 docker run -itd --rm --name router router
 check_status
@@ -40,9 +40,9 @@ check_status
 
 # Configurar cliente y servidor
 echo -e "${BLUE}${ROCKET} Building client and server images...${RESET}"
-docker build -t bitserver -f server.Dockerfile .
+docker build -t bitserver -f server.dockerfile .
 check_status
-docker build -t bitclient -f client.Dockerfile .
+docker build -t bitclient -f client.dockerfile .
 check_status
 
 # Ejecutar servidor
