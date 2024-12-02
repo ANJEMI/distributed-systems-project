@@ -30,6 +30,7 @@ class TorrentReader:
         
         return TorrentInfo(
             announce=torrent_data.get(b"announce", b"").decode("utf-8"),
+            info_hash=info.get(b"info_hash", b"").decode("utf-8"),
             name=info.get(b"name", b"").decode("utf-8"),
             piece_length=info.get(b"piece length", 0),
             length=info.get(b"length", 0),
