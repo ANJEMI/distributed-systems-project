@@ -68,9 +68,11 @@ def test_server():
 
 def test_download_from_peer():
     print("empezo download")
-    client = Client(client_id=1)
+    client = Client(client_id=2)
     client.connect_to_tracker(tracker_ip="0.0.0.0", tracker_port=8080)
-    client.request_torrent_data(torrent_id="1")
+    response = client.request_torrent_data("b48b32t3w4sdf")
+    # print(response)
+    client.start_download(response)
     #todo aqui va el inicio de la descarga si ya se tiene info del archivo
 
 def test_upload_for_peers():
@@ -79,11 +81,12 @@ def test_upload_for_peers():
     client.connect_to_tracker(tracker_ip="0.0.0.0", tracker_port=8080)
     #todo aqui va creacion de el archivo torrent que voy a compartir
     # output_path = client.create_torrent_file(file_path= os.path.join(base_path, "bigfile.txt"),tracker_ip="0.0.0.0", tracker_port=8080)
-
+    output_path = "/home/joseac/Carrera/4to_Año/1er_Semestre/Distribuido/distributed-systems-project/src/tests/bigfile.torrent"
+    # client.Run()
     #TODO aqui va conexion al tracker y decirle oye tengo esto
-    
+    client.upload_torrent_file(output_path)
+    client.start_peer_mode()
 
-    client.Run()
 
 
     
