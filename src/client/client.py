@@ -366,7 +366,8 @@ class Client:
         torrent_creator = TorrentCreator(tracker_ip, tracker_port)
         
         
-        output_path = torrent_creator.create_torrent(file_path=str(file_path), output_path=self.torrents_path)
+        output_path = torrent_creator.create_torrent(file_path=str(file_path))
+        shutil.copy(output_path, self.torrents_path)
         shutil.copy(file_path, self.data_path)
         self.find_uploaded_files()
         
