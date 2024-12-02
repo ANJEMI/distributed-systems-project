@@ -117,6 +117,7 @@ class Tracker:
         
         header = struct.pack("!I", len(message))
         
+        # todo wtf with this???
         # message = header + message
         
         return message

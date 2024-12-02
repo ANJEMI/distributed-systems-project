@@ -47,14 +47,14 @@ check_status
 
 # Ejecutar servidor
 echo -e "${BLUE}${ROCKET} Running server...${RESET}"
-docker run --rm -it --name bitserver1 --cap-add NET_ADMIN --network bitservers bitserver
-check_status
+# docker run --rm -it --name bitserver1 --cap-add NET_ADMIN --network bitservers bitserver
+# check_status
 
 # Ejecutar cliente
 echo -e "${BLUE}${ROCKET} Running clients...${RESET}"
-docker run --rm -it --name bitclient1 --cap-add NET_ADMIN --network bitclients bitclient
-check_status
-docker run --rm -it --name bitclient2 --cap-add NET_ADMIN --network bitclients bitclient
-check_status
+# docker run --rm -it --name bitclient1 --cap-add NET_ADMIN --network bitclients bitclient
+# check_status
+# docker run --rm -it --name bitclient2 --cap-add NET_ADMIN --network bitclients bitclient
+# check_status
 
-echo -e "${GREEN}${CHECK_MARK} Setup complete!${RESET}"
+echo -e "${GREEN}${CHECK_MARK} Setup complete! You can run everything now${RESET}"
