@@ -21,6 +21,16 @@ class Peer:
             print(f"log Connected to peer {self.id} at {self.ip}:{self.port}")
         except Exception as e:
             raise ConnectionError(f"Error connecting to peer {self.id}: {e}")
+        
+    def send_message(self, message):
+        """
+        Send a message to the peer.
+        """
+        try:
+            self.socket.send(message)
+            print(f"Message sent to peer {self.id}")
+        except Exception as e:
+            raise IOError(f"Error sending message to peer {self.id}: {e}")
 
     def request_piece(self, index: int, begin: int, length: int):
         """

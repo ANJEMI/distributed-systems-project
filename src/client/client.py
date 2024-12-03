@@ -7,6 +7,8 @@ from typing import Dict, List
 from src.client.peer.peer import Peer
 from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
+from client.peer.piecesController import PieceController
+from client.peer.piece import Piece
 import hashlib
 from torrents.torrent_info import TorrentInfo
 from client.messages import *
@@ -261,71 +263,48 @@ class Client:
     def start_download(self, torrent_data):
         """
         Start downloading the torrent data from peers.
+        
+        - torrent_data = {
+            "info_hash": "b48b32t3w4sdf",
+            "name": "bigfile.txt",
+            "size": 10100000,
+            "piece_size": 8080,
+            "pieces": "...",
+            "seeders": 1,
+            "leechers": 0,
+            "peers": [
+                {
+                    "ip": "0.0.0.1",
+                    "port": 6882,
+                    "peer_id": 1
+                }
+            ]
+        }
         """
         print("Log: comenzó la descarga")
 
-        # Extraer la información del torrent
-        info_hash = torrent_data["info_hash"]
-        pieces = torrent_data["pieces"]
         peers = torrent_data["peers"]
-        piece_size = torrent_data["piece_size"]
-
-        # Crear una estructura para almacenar los datos descargados
-        downloaded_pieces = [None] * len(pieces)
-
-        # # Iterar sobre los peers
-        # for peer_info in peers:
-        #     peer = Peer(peer_info["peer_id"], "0.0.0.0", peer_info["port"])
-        #     try:
-        #         peer.connect()
-
-        #         for piece_index, piece_hash in enumerate(pieces):
-        #             # Saltar si ya se descargó esta pieza
-        #             if downloaded_pieces[piece_index] is not None:
-        #                 continue
-
-        #             # Dividir la pieza en bloques
-        #             num_blocks = (piece_size + 16383) // 16384  # Tamaño máximo de bloque es 16 KiB
-        #             piece_data = bytearray(piece_size)
-
-        #             for block_index in range(num_blocks):
-        #                 block_offset = block_index * 16384
-        #                 block_length = min(16384, piece_size - block_offset)
-
-        #                 # Enviar un mensaje de solicitud (Request)
-        #                 request = Request(piece_index, block_offset, block_length)
-        #                 peer.socket.sendall(request.to_bytes())
-        #                 print(f"Log: Solicitud enviada para pieza {piece_index}, bloque {block_index}")
-
-        #                 # Recibir el mensaje de pieza (Piece)
-        #                 response = peer.socket.recv(5 + 4 + 4 + block_length)
-        #                 piece_msg = Piece.from_bytes(response)
-
-        #                 if piece_msg.piece_index != piece_index or piece_msg.block_offset != block_offset:
-        #                     raise ValueError(f"Error en el bloque recibido de la pieza {piece_index}")
-
-        #                 # Guardar el bloque en la pieza
-        #                 piece_data[block_offset:block_offset + block_length] = piece_msg.block
-
-        #             # Verificar el hash de la pieza descargada
-        #             if hashlib.sha1(piece_data).digest() != piece_hash:
-        #                 raise ValueError(f"Hash incorrecto para la pieza {piece_index}")
-
-        #             # Guardar la pieza descargada
-        #             downloaded_pieces[piece_index] = piece_data
-        #             print(f"Log: Pieza {piece_index} descargada correctamente")
-
-        #         peer.close()
-        #         break
-
-        #     except Exception as e:
-        #         print(f"Error descargando pieza del peer {peer.id}: {e}")
-        #         peer.close()
-        #         continue
-
-        # # Construir el archivo final
-        # self.build_file(info_hash)
-        # print("Descarga del torrent " + info_hash + " completada")
+        onepeer = Peer(peers[0]["peer_id"], peers[0]["ip"], peers[0]["port"])
+        onepeer.connect()
+        
+        pieces_controller = PieceController(torrent_data, self.download_path)
+        
+        while not pieces_controller.is_complete():
+            for piece in pieces_controller.pieces:
+                if piece.is_downloaded:
+                    continue
+                
+                data = piece.get_empty_block()
+                
+                if not data:
+                    continue
+                
+                piece_index, block_offset, block = data
+                message = Request(piece_index, block_offset, block.block_size).to_bytes()
+                
+                onepeer.send_message(message)
+                
+            
 
         
     def build_file(self,info_hash):
