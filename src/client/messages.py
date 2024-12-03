@@ -32,9 +32,10 @@ class Handshake(Message):
     info_hash: 20-byte SHA1 hash of the info key in the metainfo file.
     peer_id: 20-byte string used as a unique ID for the client.
     
-    Length: =  68 bytes
  
     """
+    LENGTH = 68
+    
     def __init__(self, info_hash, peer_id, pstr=b"BitTorrent protocol", pstrlen=19):
         super().__init__()
         

@@ -4,7 +4,7 @@ from typing import List, Dict
 import os
 from dottorrent import Torrent
   
-  
+import socket
 
 
 class TorrentCreator:
@@ -73,17 +73,20 @@ class TorrentCreator:
         # return output_path
 
 ...
-numero = 5
-print("Es un número entero" + str(numero))
+# numero = 5
+# print("Es un número entero" + str(numero))
 
-path = "/home/nex/Estudio/7moSEM/Distribuidos/distributed-systems-project/src/tests/bigfile.txt"
+# path = "/home/nex/Estudio/7moSEM/Distribuidos/distributed-systems-project/src/tests/bigfile.txt"
 
-a = Torrent(path=path)
+# a = Torrent(path=path)
 
-a.generate()
+# a.generate()
 
-print(a.info_hash)
+# print(a.info_hash)
 
-t = TorrentCreator()
+# t = TorrentCreator()
 
-t.create_torrent(file_path=path)
+# t.create_torrent(file_path=path)
+
+
+print(2**14)
