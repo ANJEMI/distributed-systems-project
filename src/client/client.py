@@ -353,7 +353,7 @@ class Client:
             tracker_port = self.tracker_socket.getsockname()[1]
             
             
-        torrent_creator = TorrentCreator(tracker_ip, tracker_port)
+        torrent_creator = TorrentCreator(tracker_url="www.thepiratebay.org")
         
         
         output_path = torrent_creator.create_torrent(file_path=str(file_path))
