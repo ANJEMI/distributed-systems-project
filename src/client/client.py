@@ -4,7 +4,7 @@ import struct
 import socket
 import json
 from typing import Dict, List
-from src.client.peer.peer import Peer
+from client.peer.peer import Peer
 from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
 from client.peer.piecesController import PieceController
@@ -97,47 +97,17 @@ class Client:
         except Exception as e:
             raise RuntimeError(f"Error starting peer mode: {e}")
 
-    # def handle_connection(self, conn, addr):
-    #     """
-    #     Handle a connection from a peer.
-    #     """
-    #     try:
-    #         data = conn.recv(1024)  # Recibir datos del cliente
-    #         if not data:
-    #             print(f"No data received from {addr}")
-    #             return
-
-    #         # Procesar el mensaje recibido
-    #         # Formato esperado: <len=0013><id=6><index><begin><length>
-    #         # todo refactorizar despues y asignar random
-            
-    #         if len(data) >= 13:  # Verificar que el tamaño sea al menos el esperado
-    #             request = struct.unpack(">IbIII", data[:13])
-    #             _, message_id, index, begin, length = request
-
-    #             if message_id == 6:  # Solicitud de pieza
-    #                 # Obtener los datos del archivo solicitados
-    #                 piece_data = self.files.get(index, b"")[begin:begin + length]
-
-    #                 # Construir respuesta: <len=0009+X><id=7><index><begin><block>
-    #                 response = struct.pack(">IbII", 9 + len(piece_data), 7, index, begin) + piece_data
-    #                 conn.sendall(response)  # Enviar respuesta al cliente
-    #                 print(f"Sent piece {index} (offset: {begin}, length: {length}) to {addr}")
-    #             else:
-    #                 print(f"Unhandled message ID: {message_id} from {addr}")
-    #         else:
-    #             print(f"Invalid request format from {addr}: {data}")
-
-    #     except Exception as e:
-    #         print(f"Error handling connection from {addr}: {e}")
-    #     finally:
-    #         conn.close()  # Cerrar la conexión para liberar recursos
-    
     def handle_connection(self, conn, addr):
         try:
             handshake = conn.recv(Handshake.LENGTH)
             
+            print("LLEGA AQUI")
             info_hash, peer_id = Handshake.from_bytes(handshake)
+            
+            print(f"Info hash: {info_hash}")
+            
+            
+            info_hash = info_hash.hex()
             
             data = self.find_info_hash(info_hash)
             
@@ -145,9 +115,25 @@ class Client:
                 print(f"Info hash {info_hash} not found")
                 return
             
-            
-            
-            
+            while True:
+                message = conn.recv(4)
+                if not message:
+                    break
+                
+                length = struct.unpack("!I", message)[0]
+                message = message + conn.recv(length)
+                
+                piece_index, block_offset, block_length = Request.from_bytes(message)
+                
+                f = open(data["data_file_path"], "rb")
+                
+                f.seek(piece_index * data["torrent_info"].piece_length + block_offset)
+                block = f.read(block_length)
+                f.close()
+                
+                response = Piece(piece_index, block_offset, block).to_bytes()
+                
+                conn.send(response)
             
             
         except Exception as e:
@@ -156,6 +142,12 @@ class Client:
     def find_info_hash(self, info_hash):
         """
         Find the info hash in the uploaded files.
+        
+        data = {
+                    "torrent_file_path": torrent_file_path,
+                    "torrent_info": torrent_info,
+                    "data_file_path": data_file_path
+                }
         
         Args:
             info_hash (str): The info hash to find.
@@ -204,23 +196,7 @@ class Client:
             info_hash (str): The info hash of the torrent.
         Returns:
             response: The torrent data from the tracker server.
-        
-        Example response:
-            {
-              "info_hash": "hash",
-              "name": "Torrent de prueba",
-              "size": 1024,
-              "pieces": "hash1hash2hash3",
-              "seeders": 1,
-              "leechers": 0,
-              "peers": [
-                {
-                  "peer_id": "1",
-                  "ip": "",
-                  "port": 6881
-                }
-              ]
-            }
+
         """
         
         if not self.tracker_socket:
@@ -263,67 +239,58 @@ class Client:
     def start_download(self, torrent_data):
         """
         Start downloading the torrent data from peers.
-        
-        - torrent_data = {
-            "info_hash": "b48b32t3w4sdf",
-            "name": "bigfile.txt",
-            "size": 10100000,
-            "piece_size": 8080,
-            "pieces": "...",
-            "seeders": 1,
-            "leechers": 0,
-            "peers": [
-                {
-                    "ip": "0.0.0.1",
-                    "port": 6882,
-                    "peer_id": 1
-                }
-            ]
-        }
         """
         print("Log: comenzó la descarga")
+        
+        data = TorrentInfo(
+            announce="",
+            info_hash=torrent_data["info_hash"],
+            name=torrent_data["name"],
+            piece_length=torrent_data["piece_size"],
+            length=torrent_data["size"],
+            pieces=torrent_data["pieces"]
+        )
 
         peers = torrent_data["peers"]
         onepeer = Peer(peers[0]["peer_id"], peers[0]["ip"], peers[0]["port"])
         onepeer.connect()
         
-        pieces_controller = PieceController(torrent_data, self.download_path)
+        hash_bytes = bytes.fromhex(torrent_data["info_hash"])
+        onepeer.send_message(Handshake(info_hash=hash_bytes).to_bytes())
+        
+        output_path = os.path.join(self.download_path, torrent_data["name"])
+        
+        pieces_controller = PieceController(data, output_path)
+        
+        print("Log: comenzó a pedir bloques")
         
         while not pieces_controller.is_complete():
             for piece in pieces_controller.pieces:
-                if piece.is_downloaded:
+                index = piece.piece_index
+                
+                if pieces_controller.bitfield[index]:
                     continue
                 
-                data = piece.get_empty_block()
+                data = pieces_controller.get_empty_block(index)
+                # print("Log: pidiendo bloque: ", data)
                 
                 if not data:
                     continue
                 
                 piece_index, block_offset, block = data
-                message = Request(piece_index, block_offset, block.block_size).to_bytes()
+                # message = Request(piece_index, block_offset, block.block_size).to_bytes()
                 
-                onepeer.send_message(message)
+                dat = onepeer.request_piece(piece_index, block_offset, block.block_size)
                 
-            
-
-        
-    def build_file(self,info_hash):
-        # TODO
-        """
-        Build the file from the pieces downloaded.
-        """
-        pieces = self.torrents_downloading[info_hash]["pieces"]
-        piece_size = self.torrents_downloading[info_hash]["piece_size"]
-        
-        file_path = os.path.join(self.download_path, f"{info_hash}.txt")
-        
-        with open(file_path, "wb") as file:
-            for index, piece_hash in enumerate(pieces):
-                piece_file_path = os.path.join(self.download_path, f"{info_hash}_{index}")
-                with open(piece_file_path, "rb") as piece_file:
-                    file.write(piece_file.read())
-        
-        print(f"File {file_path} built")
+                pieces_controller.receive_block(piece_index=piece_index, block_offset=block_offset, data=dat)
+                # piece.set_block(block_offset, block)
+                
+                if piece.is_complete():
+                    print(f"Piece {piece.piece_index} downloaded")
+                    if piece.set_total_data():
+                        piece.save_piece(output_path)
+                        print(f"Piece {piece_index} saved")
+        print("Log: descarga completada")
                 
     def close(self):
         """

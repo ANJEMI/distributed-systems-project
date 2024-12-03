@@ -25,31 +25,14 @@ class Piece:
         
         if self.num_blocks == 1:
             self.blocks[0].block_size = self.piece_size
-        
-        
-    # def get_block(self, block_index: int) -> Block:
-    #     return self.blocks[block_index]
-    
-    # def get_block_raw_data(self, block_offset: int, block_length: int) -> bytes:
-    #     return self.raw_data[block_offset:block_offset + block_length]
-    
-    def set_block(self, offset: int, data: bytes):
-        block_index = offset // BLOCK_SIZE
+            
+    def set_block(self, block_index: int, data: bytes):
+        # block_index = offset // BLOCK_SIZE
         
         if not self.is_downloaded and not self.blocks[block_index].state == State.DOWNLOADED:
             self.blocks[block_index].data = data
             self.blocks[block_index].state = State.DOWNLOADED
-    
-    def get_empty_block(self):
-        if self.is_downloaded:
-            return None
-        
-        for index, block in enumerate(self.blocks):
-            if block.state == State.EMPTY:
-                return self.piece_index, index, block
-            
-        return None
-    
+                
     def is_complete(self) -> bool:
         return all([block.state == State.DOWNLOADED for block in self.blocks])
     
@@ -68,8 +51,8 @@ class Piece:
     def set_total_data(self):
         data = self._merge_blocks()
         
-        if not self._validate_piece():
-            return False
+        # TODO if not self._validate_piece():
+        # TODO     return False
         
         self.is_downloaded = True
         self.raw_data = data

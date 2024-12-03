@@ -36,7 +36,7 @@ class Handshake(Message):
     """
     LENGTH = 68
     
-    def __init__(self, info_hash, peer_id, pstr=b"BitTorrent protocol", pstrlen=19):
+    def __init__(self, info_hash, pstr=b"BitTorrent protocol", pstrlen=19, peer_id=b'-ZZ0007-000000000000'):
         super().__init__()
         
         assert len(info_hash) == 20
@@ -53,12 +53,17 @@ class Handshake(Message):
     @classmethod
     def from_bytes(self, message):
         pstrlen = unpack(">B", message[:1])[0]
-        pstr, _ , info_hash, peer_id = unpack(">{}s8s20s20s".format(pstrlen), message[1:])
+        fmt = ">B{}s8s20s20s".format(pstrlen)
+        unpacked_data = unpack(fmt, message[:self.LENGTH])
         
+        pstr = unpacked_data[1]
+        reserved = unpacked_data[2]
+        info_hash = unpacked_data[3]
+        peer_id = unpacked_data[4]
         if pstr != b"BitTorrent protocol":
             raise ValueError("Invalid protocol string")
         
-        return self(info_hash, peer_id)
+        return (info_hash, peer_id)
     
 class KeepAlive(Message):
     """ Keep alive message
@@ -169,6 +174,7 @@ class Request(Message):
     """ Request message
     <length=13><message_id=6><piece_index><block_offset><block_length>
     """
+    message_id = 6
     def __init__(self, piece_index, block_offset, block_length):
         super().__init__()
         self.piece_index = piece_index
@@ -183,7 +189,7 @@ class Request(Message):
         length, message_id, piece_index, block_offset, block_length = unpack(">IBIII", message[:17])
         if length != 13 or message_id != 6:
             raise WrongMessageException("Invalid Request message")
-        return self(piece_index, block_offset, block_length)
+        return (piece_index, block_offset, block_length)
 
 
 # ---
@@ -222,7 +228,7 @@ class Piece(Message):
         if message_id != 7:
             raise WrongMessageException("Not a Piece message")
         
-        return self(piece_index, block_offset, block)
+        return (piece_index, block_offset, block)
 
 
 class Cancel(Message):

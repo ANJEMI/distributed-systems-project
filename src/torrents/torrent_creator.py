@@ -62,7 +62,7 @@ class TorrentCreator:
             }
         }
 
-        info_hash = hashlib.sha1(bencodepy.encode(torrent_data["info"])).hexdigest()
+        info_hash = hashlib.sha1(bencodepy.encode(torrent_data["info"])).digest()
 
         torrent_data["info"]["info_hash"] = info_hash
         

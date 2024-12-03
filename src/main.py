@@ -68,7 +68,7 @@ def test_server():
     #     # Resolver el nombre del host a una IP local
     # local_ip = socket.gethostbyname(hostname)
 
-    # tracker.start_tracker()
+    tracker.start_tracker()
 
 
 
@@ -78,7 +78,7 @@ def test_download_from_peer():
     # client.connect_to_tracker(tracker_ip="127.0.0.0", tracker_port=8080)
     # response = client.request_torrent_data("b48b32t3w4sdf")
     t = Tracker()
-    r = t.get_torrent_info("b48b32t3w4sdf")
+    r = t.get_torrent_info("9ec1f83aeffd7ca709a6569feab7d5a61b9228e7")
     r = r.decode()
     response = json.loads(r)
     # print(response)
@@ -125,6 +125,9 @@ def main():
         test_upload_for_peers()
     elif mode == "download":
         test_download_from_peer()
+    elif mode == "client":
+        client = Client(client_id=1)
+        client.Run()
     else:
         print("Invalid argument. Use 'server', 'download' or 'upload'.")
         sys.exit(1)
