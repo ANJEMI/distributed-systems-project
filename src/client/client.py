@@ -3,13 +3,15 @@ import threading
 import struct
 import socket
 import json
+import random
+import hashlib
 from typing import Dict, List
+
 from client.peer.peer import Peer
 from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
 from client.peer.piecesController import PieceController
 from client.peer.piece import Piece
-import hashlib
 from torrents.torrent_info import TorrentInfo
 from client.messages import *
 
@@ -252,11 +254,24 @@ class Client:
         )
 
         peers = torrent_data["peers"]
-        onepeer = Peer(peers[0]["peer_id"], peers[0]["ip"], peers[0]["port"])
-        onepeer.connect()
+        print(peers)
+        peers_connected = []
+        # onepeer = Peer(peers[0]["peer_id"], peers[0]["ip"], peers[0]["port"])
+        # onepeer.connect()
         
-        hash_bytes = bytes.fromhex(torrent_data["info_hash"])
-        onepeer.send_message(Handshake(info_hash=hash_bytes).to_bytes())
+        # hash_bytes = bytes.fromhex(torrent_data["info_hash"])
+        # onepeer.send_message(Handshake(info_hash=hash_bytes).to_bytes())
+        for peer in peers:
+            p = Peer(peer["peer_id"], peer["ip"], peer["port"])
+            try:
+                p.connect()
+                
+                hash_bytes = bytes.fromhex(torrent_data["info_hash"])
+                p.send_message(Handshake(info_hash=hash_bytes).to_bytes())
+                peers_connected.append(p)
+                
+            except Exception as e:
+                print(f"Error connecting to peer {peer['peer_id']}: {e}")
         
         output_path = os.path.join(self.download_path, torrent_data["name"])
         
@@ -280,7 +295,9 @@ class Client:
                 piece_index, block_offset, block = data
                 # message = Request(piece_index, block_offset, block.block_size).to_bytes()
                 
-                dat = onepeer.request_piece(piece_index, block_offset, block.block_size)
+                random_peer = random.choice(peers_connected)
+                
+                dat = random_peer.request_piece(piece_index, block_offset, block.block_size)
                 
                 pieces_controller.receive_block(piece_index=piece_index, block_offset=block_offset, data=dat)
                 # piece.set_block(block_offset, block)
