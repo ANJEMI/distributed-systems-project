@@ -14,4 +14,7 @@ COPY src/client/main.py /app/
 
 EXPOSE 6881
 
+RUN chmod +x /app/client/client_config_route.sh
+RUN ./app/client/client_config_route.sh
+
 CMD ["/bin/sh"]

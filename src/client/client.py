@@ -8,6 +8,7 @@ import hashlib
 import random
 import hashlib
 import shutil
+import subprocess
 from typing import Dict, List
 
 
@@ -424,7 +425,7 @@ class Client:
 
         print(f"{BLUE}Client console application{RESET}")
         print(f"{YELLOW}Commands:{RESET}")
-        print("1. connect <tracker_ip> <tracker_port>")
+        print("1. connect_tr")
         print("2. get_torrent <info_hash>")
         print("3. download <info_hash>")
         print("4. create_torrent <file_path>")
@@ -439,7 +440,7 @@ class Client:
             
             try:
                 if command[0] == "connect":
-                    self.connect_to_tracker(command[1], int(command[2]))
+                    self.connect_to_tracker("10.0.11.2", 8080)
                 elif command[0] == "drop_tracker":
                     self.close()
                 elif command[0] == "get_torrent":
@@ -456,6 +457,14 @@ class Client:
                     break
                 else:
                     print(f"{RED}Unknown command. Please try again.{RESET}")
+                    # Intentar ejecutar el comando como un comando de Bash
+                    try:
+                        result = subprocess.run(command, capture_output=True, text=True, check=True)
+                        print(result.stdout)  # Mostrar la salida del comando
+                    except subprocess.CalledProcessError as e:
+                        print(f"{RED}Error executing command: {e}{RESET}")
+                    except FileNotFoundError:
+                        print(f"{RED}Command not found: {command[0]}{RESET}")
             except IndexError:
                 print(f"{RED}Error: Missing arguments. Please check your command.{RESET}")
             except ValueError:
