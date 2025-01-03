@@ -19,12 +19,28 @@ check_status() {
     fi
 }
 
+
+stop_containers_using_network() {
+    local network_name=$1
+    local containers=$(docker network inspect -f '{{range .Containers}}{{.Name}} {{end}}' "$network_name")
+
+    if [ -n "$containers" ]; then
+        echo -e "${YELLOW}Stopping containers using network $network_name: $containers${RESET}"
+        for container in $containers; do
+            docker stop "$container"
+            check_status
+        done
+    fi
+}
+
+
 create_network() {
     local network_name=$1
     local subnet=$2
 
     if docker network ls | grep -q "$network_name"; then
         echo -e "${WARNING} ${YELLOW}Network $network_name already exists. Removing it...${RESET}"
+        stop_containers_using_network "$network_name"
         docker network rm "$network_name"
         check_status
     fi

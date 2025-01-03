@@ -13,8 +13,9 @@ COPY src/tracker/main.py /app/
 
 EXPOSE 8080
 
-RUN chmod +x /app/tracker/server_config_route.sh
-RUN ./app/tracker/server_config_route.sh
+# todo: fix this bug to automate
+# RUN chmod +x /app/tracker/server_config_route.sh
+# RUN ./app/tracker/server_config_route.sh
 
 CMD ["/bin/sh"]
 
