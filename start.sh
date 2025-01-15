@@ -10,6 +10,7 @@ BLUE="\033[94m"
 ROCKET="🚀"
 CHECK_MARK="✅"
 WARNING="🚧"
+SHELL=""
 
 # Check status function
 check_status() {
@@ -18,7 +19,6 @@ check_status() {
         exit 1
     fi
 }
-
 
 stop_containers_using_network() {
     local network_name=$1
@@ -49,6 +49,18 @@ create_network() {
     check_status
 }
 
+identify_terminal() {
+    # in case of using another terminal this function must be modified
+    if command -v kitty &> /dev/null; then
+        SHELL="kitty"
+    elif command -v gnome-terminal &> /dev/null; then
+        SHELL="gnome-terminal"
+    else
+        echo "${WARNING} ${RED}Neither kitty nor gnome-terminal was found. You must modify identify_terminal() manually."
+        exit 1
+    fi
+}
+
 # Create the networks
 echo -e "${BLUE}${ROCKET} Creating networks...${RESET}"
 create_network "bitclients" "10.0.10.0/24"
@@ -73,16 +85,19 @@ check_status
 docker build -t bitclient -f client.dockerfile .
 check_status
 
+# Identify Shell to run the docker comands
+identify_terminal
+
 # Run server
 echo -e "${BLUE}${ROCKET} Running server...${RESET}"
-docker run --rm -it --name bitserver1 --cap-add NET_ADMIN --network bitservers bitserver
+$SHELL bash -c "echo 'This is the server' && docker run --rm -it --name bitserver1 --cap-add NET_ADMIN --network bitservers bitserver" &
 check_status
 
 # Run clients
 echo -e "${BLUE}${ROCKET} Running clients...${RESET}"
-docker run --rm -it --name bitclient1 --cap-add NET_ADMIN --network bitclients bitclient
+$SHELL bash -c "echo 'This is client 1' && docker run --rm -it --name bitclient1 --cap-add NET_ADMIN --network bitclients bitclient" &
 check_status
-docker run --rm -it --name bitclient2 --cap-add NET_ADMIN --network bitclients bitclient
+$SHELL bash -c "echo 'This is client 2' && docker run --rm -it --name bitclient2 --cap-add NET_ADMIN --network bitclients bitclient" &
 check_status
 
 echo -e "${GREEN}${CHECK_MARK} Setup complete! You can run everything now${RESET}"
