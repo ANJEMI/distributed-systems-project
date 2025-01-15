@@ -10,7 +10,11 @@ BLUE="\033[94m"
 ROCKET="🚀"
 CHECK_MARK="✅"
 WARNING="🚧"
+CRASH="❌"
 SHELL=""
+
+NUM_SERVERS=1
+NUM_CLIENTS=2
 
 # Check status function
 check_status() {
@@ -56,7 +60,7 @@ identify_terminal() {
     elif command -v gnome-terminal &> /dev/null; then
         SHELL="gnome-terminal"
     else
-        echo "${WARNING} ${RED}Neither kitty nor gnome-terminal was found. You must modify identify_terminal() manually."
+        echo -e "${CRASH} ${RED}Neither kitty nor gnome-terminal was found. You must modify identify_terminal() manually.${RESET}"
         exit 1
     fi
 }
@@ -90,14 +94,16 @@ identify_terminal
 
 # Run server
 echo -e "${BLUE}${ROCKET} Running server...${RESET}"
-$SHELL bash -c "echo 'This is the server' && docker run --rm -it --name bitserver1 --cap-add NET_ADMIN --network bitservers bitserver" &
-check_status
+for ((i=1; i<=NUM_SERVERS; i++)); do
+    $SHELL bash -c "echo 'This is the server #$i' && docker run --rm -it --name bitserver$i --cap-add NET_ADMIN --network bitservers bitserver" &
+    check_status
+done
 
 # Run clients
 echo -e "${BLUE}${ROCKET} Running clients...${RESET}"
-$SHELL bash -c "echo 'This is client 1' && docker run --rm -it --name bitclient1 --cap-add NET_ADMIN --network bitclients bitclient" &
-check_status
-$SHELL bash -c "echo 'This is client 2' && docker run --rm -it --name bitclient2 --cap-add NET_ADMIN --network bitclients bitclient" &
-check_status
+for ((i=1; i<=NUM_CLIENTS; i++)); do
+    $SHELL bash -c "echo 'This is client #$i' && docker run --rm -it --name bitclient$i --cap-add NET_ADMIN --network bitclients bitclient" &
+    check_status
+done
 
 echo -e "${GREEN}${CHECK_MARK} Setup complete! You can run everything now${RESET}"
