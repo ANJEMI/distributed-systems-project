@@ -439,7 +439,7 @@ class Client:
             command = command.split()
             
             try:
-                if command[0] == "connect":
+                if command[0] == "connect_tr":
                     self.connect_to_tracker("10.0.11.2", 8080)
                 elif command[0] == "drop_tracker":
                     self.close()

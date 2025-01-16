@@ -95,14 +95,14 @@ identify_terminal
 # Run server
 echo -e "${BLUE}${ROCKET} Running server...${RESET}"
 for ((i=1; i<=NUM_SERVERS; i++)); do
-    $SHELL bash -c "echo 'This is the server #$i' && docker run --rm -it --name bitserver$i --cap-add NET_ADMIN --network bitservers bitserver" &
+    $SHELL bash -c "echo 'This is server #$i' && docker run --rm --privileged -it --name bitserver$i --cap-add NET_ADMIN --network bitservers bitserver" &
     check_status
 done
 
 # Run clients
 echo -e "${BLUE}${ROCKET} Running clients...${RESET}"
 for ((i=1; i<=NUM_CLIENTS; i++)); do
-    $SHELL bash -c "echo 'This is client #$i' && docker run --rm -it --name bitclient$i --cap-add NET_ADMIN --network bitclients bitclient" &
+    $SHELL bash -c "echo 'This is client #$i' && docker run --rm --privileged -it --name bitclient$i --cap-add NET_ADMIN --network bitclients bitclient" &
     check_status
 done
 
