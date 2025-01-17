@@ -19,24 +19,12 @@ Luego ejecute el archivo
 ./start.sh
 ```
 
-Al finalizar deberá tener el entorno listo para levantar los contenedeores de docker. 
-Para ello ejecute:
-
-```bash
-docker run --rm -it --name bitserver --cap-add NET_ADMIN --network bitservers bitserver 
-```
-
-```bash
-docker run --rm -it --name bitclient1 --cap-add NET_ADMIN --network bitclients bitclient
-```
-
-Estos comandos inicializaran los contenedores para emular el comportamiento de un servidor 
-y un cliente respectivamente. Usted puede inicializar más clientes usando el comando anterior 
-cambiando `bitclient1` por `bitclient2`, `bitclient3`, `bitclient4` ... 
+Este comando inicializará los contenedores para emular el comportamiento de lso servidores
+y un clientes respectivamente. Usted puede inicializar más clientes y servidores modificando 
+las variables `NUM_CLIENTS` y `NUM_SERVERS` respectivamente. 
 
 
-Una vez dentro del los contenedores ejecutar cambiar la tabla de rutas apropiadamente y 
-ejecutar el comando:
+Una vez dentro del los contenedores debe ejecutar el siguiente comando:
 
 ```python
 python main.py
