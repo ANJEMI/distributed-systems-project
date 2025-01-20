@@ -9,6 +9,7 @@ import random
 import hashlib
 import shutil
 import subprocess
+import readline
 from typing import Dict, List
 
 
@@ -422,6 +423,28 @@ class Client:
         RED = "\033[91m"
         YELLOW = "\033[93m"
         BLUE = "\033[94m"
+
+        COMMANDS = [
+            "connect_tr",
+            "drop_tracker",
+            "get_torrent",
+            "start_seeding",
+            "download",
+            "create_torrent",
+            "upload_torrent",
+            "exit"
+        ]
+
+        # shell util
+        def completer(text, state):
+            options = [cmd for cmd in COMMANDS if cmd.startswith(text)]
+            if state < len(options):
+                return options[state]
+            else:
+                return None
+
+        readline.set_completer(completer)
+        readline.parse_and_bind("tab: complete")
 
         print(f"{BLUE}Client console application{RESET}")
         print(f"{YELLOW}Commands:{RESET}")

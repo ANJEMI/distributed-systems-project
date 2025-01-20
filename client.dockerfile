@@ -1,8 +1,7 @@
 FROM python:3.10-alpine
 
 # OPTIONAL 
-RUN apk add --no-cache ranger
-RUN apk add --no-cache vim
+RUN apk add --no-cache vim ranger tmux
 
 WORKDIR /app
 
