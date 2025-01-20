@@ -106,4 +106,4 @@ for ((i=1; i<=NUM_CLIENTS; i++)); do
     check_status
 done
 
-echo -e "${GREEN}${CHECK_MARK} Setup complete! You can run everything now${RESET}"
+echo -e "${GREEN}${CHECK_MARK} Setup complete! You can run everything now.{RESET}"
