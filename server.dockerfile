@@ -17,11 +17,6 @@ COPY src/tracker/main.py /app/
 
 EXPOSE 8080
 
-# # todo: fix this bug to automate
-# RUN chmod +x /app/tracker/server_config_route.sh
-# ENTRYPOINT ["/app/tracker/server_config_route.sh"]
-
-# CMD ["&&", "/bin/sh"]
 COPY src/tracker/start_server.sh /app/start_server.sh
 RUN chmod +x /app/start_server.sh
 ENTRYPOINT ["/app/start_server.sh"]

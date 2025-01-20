@@ -18,11 +18,6 @@ COPY src/client/main.py /app/
 
 EXPOSE 6881
 
-# todo: fix this bug to automate
-# RUN chmod +x /app/client/client_config_route.sh
-# ENTRYPOINT ["/app/client/client_config_route.sh"]
-
-# CMD ["&&", "/bin/sh"]
 COPY src/client/start_client.sh /app/start_client.sh
 RUN chmod +x /app/start_client.sh
 ENTRYPOINT ["/app/start_client.sh"]
