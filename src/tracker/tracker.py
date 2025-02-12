@@ -3,6 +3,8 @@ import os
 import socket
 import struct
 import threading
+import sys
+import select
 
 class Tracker:
     # TRACKER_DIRECTORY = "src/tracker/database"  make dinamic
@@ -182,9 +184,29 @@ class Tracker:
         server.listen(5)
         print(f"Tracker server started at {host}:{port}")
         
+        # while True:
+        #     client_socket, addr = server.accept()
+        #     print(f"Connection from {addr}")
+
+        #     client_thread = threading.Thread(target=self.handle_client, args=(client_socket,), daemon=True)
+        #     client_thread.start()
         while True:
-            client_socket, addr = server.accept()
-            print(f"Connection from {addr}")
-            
-            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,), daemon=True)
-            client_thread.start()
+            # Check for keyboard input or incoming connections
+            readable, _, _ = select.select([server, sys.stdin], [], [], 0.1)
+            for r in readable:
+                if r is sys.stdin:
+                    user_input = sys.stdin.read(1)  # Read a single character
+                    if user_input.strip().lower() == "q":  # Exit on 'q'
+                        print("Exiting tracker server...")
+                        server.close()
+                        return
+
+                if r is server:
+                    client_socket, addr = server.accept()
+                    print(f"Connection from {addr}")
+
+                    try:
+                        client_thread = threading.Thread(target=self.handle_client, args=(client_socket,), daemon=True)
+                        client_thread.start()
+                    except Exception as e:
+                        print(f"Error handling client {addr}: {e}")

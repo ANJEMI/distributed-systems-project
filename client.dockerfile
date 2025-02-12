@@ -9,11 +9,12 @@ COPY requirements.txt requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src/client /app/client
-COPY src/torrents /app/torrents
-COPY src/common /app/common
-COPY src/__init__.py /app/
-COPY src/client/main.py /app/
+# uncomment later
+# COPY src/client /app/client
+# COPY src/torrents /app/torrents
+# COPY src/common /app/common
+# COPY src/__init__.py /app/
+# COPY src/client/main.py /app/
 
 EXPOSE 6881
 

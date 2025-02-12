@@ -9,10 +9,11 @@ COPY requirements.txt requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src/tracker /app/tracker
-COPY src/common /app/common
-COPY src/__init__.py /app/
-COPY src/tracker/main.py /app/
+# uncomment later
+# COPY src/tracker /app/tracker
+# COPY src/common /app/common
+# COPY src/__init__.py /app/
+# COPY src/tracker/main.py /app/
 
 EXPOSE 8080
 
