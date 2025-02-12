@@ -224,10 +224,18 @@ class Client:
             
             header = self.tracker_socket.recv(4)
             data_len = struct.unpack("!I", header)[0]
+            
+            print(f"Data length: {data_len}")
             response = self.tracker_socket.recv(data_len).decode()
-            response = """{"in""" + response
-
+            print(f"Response: {response}")
+            
+            # response = """{"in""" + response
+            if "ERROR" in response:
+                print(response)
+                return None
+            
             response = json.loads(response)
+            
 
             # todo delete?
             # self.torrents_downloading[info_hash] = response
@@ -306,6 +314,10 @@ class Client:
                 peers_connected.append(p)
             except Exception as e:
                 print(f"Error connecting to peer {peer['peer_id']}: {e}")
+            
+        if len(peers_connected) == 0:
+            print("No se pudo conectar a ningún peer")
+            return
 
         output_path = os.path.join(self.download_path, torrent_data["name"])
         pieces_controller = PieceController(data, output_path)
@@ -405,8 +417,9 @@ class Client:
             message = header + message
             
             self.tracker_socket.send(message)
-            
-            response = self.tracker_socket.recv(1024).decode()
+            header = self.tracker_socket.recv(4)
+            data_len = struct.unpack("!I", header)[0]
+            response = self.tracker_socket.recv(data_len).decode()
             print(f"Tracker response: {response}")
             self.uploaded_files 
         except Exception as e:
@@ -471,7 +484,9 @@ class Client:
                 elif command[0] == "start_seeding":
                     self.start_peer_mode()
                 elif command[0] == "download":
-                    self.start_download(self.request_torrent_data(command[1]))
+                    r = self.request_torrent_data(command[1])
+                    if r:
+                        self.start_download(r)
                 elif command[0] == "create_torrent":
                     self.create_torrent_file(file_path=str(command[1]))
                 elif command[0] == "upload_torrent":

@@ -117,8 +117,7 @@ class Tracker:
         
         header = struct.pack("!I", len(message))
         
-        # todo wtf with this???
-        # message = header + message
+        message = header + message
         
         return message
         
@@ -141,12 +140,21 @@ class Tracker:
                     torrent_metadata = message["torrent_metadata"]
                     peer_info = message["peer_info"]
                     self.update_tracker(torrent_metadata, peer_info)
-                    client_socket.sendall(b"Torrent successfully registered.")
+                    message = "Torrent successfully registered.".encode()
+                    header = struct.pack("!I", len(message))
+                    
+                    client_socket.sendall(header + message)
 
                 elif message["type"] == "get_torrent":
                     info_hash = message["info_hash"]
-                    torrent_info = self.get_torrent_info(info_hash)
-                    client_socket.sendall(torrent_info)
+                    try:
+                        torrent_info = self.get_torrent_info(info_hash)
+                        client_socket.sendall(torrent_info)
+                    except Exception as e:
+                        print(f"Error getting torrent info: {e}")
+                        message = f"ERROR: Torrent not found in the tracker.".encode()
+                        header = struct.pack("!I", len(message))
+                        client_socket.sendall(header + message)
                 else:
                     print("Invalid message type.")
                     client_socket.sendall(b"Invalid message type.")
