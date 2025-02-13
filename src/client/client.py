@@ -14,6 +14,7 @@ from typing import Dict, List
 
 
 from client.peer.peer import Peer
+from client.peer.block import BLOCK_SIZE
 from torrents.torrent_creator import TorrentCreator
 from torrents.torrent_reader import TorrentReader
 from client.peer.piecesController import PieceController
@@ -241,10 +242,6 @@ class Client:
             # self.torrents_downloading[info_hash] = response
             
             print(f"Torrent data received. Info hash: {info_hash}")
-            
-            # length = int(response["size"]) // int(response["piece_size"])
-            
-            # self.pieces_downloaded[info_hash] = [False] * length
 
             return response
         
@@ -267,23 +264,25 @@ class Client:
                 
         return free_peers   
 
-    def download_piece(self, piece, peers_connected, pieces_controller, output_path):
+    def download_piece(self, piece: Piece, peers_connected, pieces_controller: PieceController, output_path):
         while not piece.is_complete():
             data = pieces_controller.get_empty_block(piece.piece_index)
             if not data:
                 continue
 
-            piece_index, block_offset, block = data
+            piece_index, block_index, block = data
             
-            free_peers = self.get_free_peers(peers_connected)
+            block_offset = block_index * BLOCK_SIZE
+            
+            free_peers: List[Peer] = self.get_free_peers(peers_connected)
             if not free_peers:
                 continue
             
-            random_peer = random.choice(free_peers)
+            random_peer: Peer = random.choice(free_peers)
 
             try:
                 block_data = random_peer.request_piece(piece_index, block_offset, block.block_size)
-                pieces_controller.receive_block(piece_index=piece_index, block_offset=block_offset, data=block_data)
+                pieces_controller.receive_block(piece_index=piece_index, block_index=block_index, data=block_data)
             except Exception as e:
                 print(f"Error downloading block: {e}")
 
@@ -509,3 +508,4 @@ class Client:
                 print(f"{RED}Error: Invalid value. Please check your input.{RESET}")
             except Exception as e:
                 print(f"{RED}An error occurred: {e}{RESET}")
+
