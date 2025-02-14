@@ -20,6 +20,7 @@ from torrents.torrent_reader import TorrentReader
 from client.peer.piecesController import PieceController
 from client.peer.piece import Piece
 from torrents.torrent_info import TorrentInfo
+from common.text_formating import print_formated
 from client.messages import *
 
 class Client:
@@ -89,16 +90,17 @@ class Client:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.bind((self.client_ip, self.listen_port))
             self.server_socket.listen(5)
-            print(f"Client {self.client_id} listening on port {self.listen_port} and IP {self.client_ip}")
+            
+            print_formated(f"Client {self.client_id} listening on port {self.listen_port} and IP {self.client_ip}", color='magenta')
 
             while True:
                 try:
                     conn, addr = self.server_socket.accept()
-                    print(f"Incoming connection from {addr}")
+                    print_formated(f"Incoming connection from {addr}", color='magenta')
                     # Thread para manejar cada conexión
                     threading.Thread(target=self.handle_connection, args=(conn, addr), daemon=True).start()
                 except Exception as e:
-                    print(f"Error accepting connection: {e}")
+                    print_formated(f"Error accepting connection: {e}", color='magenta')
 
         except Exception as e:
             raise RuntimeError(f"Error starting peer mode: {e}")
@@ -484,7 +486,8 @@ class Client:
                 elif command[0] == "get_torrent":
                     self.request_torrent_data(command[1])
                 elif command[0] == "start_seeding":
-                    self.start_peer_mode()
+                    # self.start_peer_mode()
+                    threading.Thread(target=self.start_peer_mode, daemon=True).start()
                 elif command[0] == "download":
                     r = self.request_torrent_data(command[1])
                     if r:
