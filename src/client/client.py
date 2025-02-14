@@ -454,21 +454,24 @@ class Client:
                 return options[state]
             else:
                 return None
+        def print_commands():
+            readline.set_completer(completer)
+            readline.parse_and_bind("tab: complete")
 
-        readline.set_completer(completer)
-        readline.parse_and_bind("tab: complete")
-
-        print(f"{BLUE}Client console application{RESET}")
-        print(f"{YELLOW}Commands:{RESET}")
-        print("1. connect_tr")
-        print("2. get_torrent <info_hash>")
-        print("3. download <info_hash>")
-        print("4. create_torrent <file_path>")
-        print("5. upload_torrent <torrent_file_path>")
-        print("6. drop_tracker")
-        print("7. start_seeding")
-        print("8. exit")
+            print(f"{BLUE}Client console application{RESET}")
+            print(f"{YELLOW}Commands:{RESET}")
+            print("1. connect_tr")
+            print("2. get_torrent <info_hash>")
+            print("3. download <info_hash>")
+            print("4. create_torrent <file_path>")
+            print("5. upload_torrent <torrent_file_path>")
+            print("6. drop_tracker")
+            print("7. start_seeding")
+            print("8. help")
+            print("9. exit")
         
+        print_commands()
+
         while True:
             command = input(f"{GREEN}Enter a command: {RESET}")
             command = command.split()
@@ -490,6 +493,8 @@ class Client:
                     self.create_torrent_file(file_path=str(command[1]))
                 elif command[0] == "upload_torrent":
                     self.upload_torrent_file(command[1])
+                elif command[0] == "help":
+                    print_commands()
                 elif command[0] == "exit":
                     break
                 else:
