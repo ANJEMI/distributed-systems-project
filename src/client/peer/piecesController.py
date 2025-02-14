@@ -19,9 +19,10 @@ class PieceController:
         self._generate_pieces()
         
     def _generate_pieces(self):
+        
         for i in range(self.number_of_pieces):
-            start = i * 20
-            end = start + 20
+            start = i * 40
+            end = start + 40
             
             if i == self.number_of_pieces - 1:
                 piece_size = self.torrent.length - (self.torrent.piece_length * i)

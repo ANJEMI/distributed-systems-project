@@ -25,10 +25,14 @@ class TorrentCreator:
         :return encoded_pieces: A single string of encoded pieces
         """
         pieces = b''
-    
+        first = True
+        
         with open(file_path, 'rb') as f:
             while chunk := f.read(self.piece_length):
                 sha1_hash = hashlib.sha1(chunk).digest()  # Hash de 20 bytes (binario)
+                if first:
+                    print("First hash: ", sha1_hash)
+                    print("First hash length: ", len(sha1_hash))
                 pieces += sha1_hash
                 
         return pieces

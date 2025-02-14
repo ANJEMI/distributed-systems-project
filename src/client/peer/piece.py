@@ -52,16 +52,14 @@ class Piece:
         return b"".join([block.data for block in self.blocks])
     
     def _validate_piece(self, data) -> bool:
-        hash_piece = hashlib.sha1(data).digest()
+        hash_piece = hashlib.sha1(data).digest().hex()
         
         if hash_piece == self.piece_hash:
-            return True
+            print(f"Integrity check passed for piece {self.piece_index}")
+            return True 
         
-        
-        # print(f"Piece {self.piece_index} is corrupted")
-        
-        # print(f"Expected hash: {self.piece_hash}")
-        # print(f"Calculated hash: {hash_piece}")
+        print(f"Expected hash: {self.piece_hash}")
+        print(f"Calculated hash: {hash_piece}")
         
         return False
     
@@ -69,8 +67,7 @@ class Piece:
         data = self._merge_blocks()
         
         if not self._validate_piece(data):
-            # TODO
-            pass
+            return False
         
         self.is_downloaded = True
         self.raw_data = data
