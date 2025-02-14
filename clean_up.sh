@@ -14,7 +14,7 @@ rm -rf $CLIENT_2_DOWNLOADS
 if [ -f "$TRACKER_DATA" ]; then
     echo '{
     "torrents": []
-    }' > "$TRACKER_DATA"
+}' > "$TRACKER_DATA"
 else
     echo "tracker_data.json not found."
 fi

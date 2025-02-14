@@ -19,6 +19,10 @@ class Tracker:
         Returns:
             None
         """
+        
+        if os.path.exists(os.path.join(self.TRACKER_DIRECTORY, self.TRACKER_FILE_NAME)):
+            return
+        
         def create_empty_tracker_data():
             return {
                 "torrents": []
@@ -179,6 +183,8 @@ class Tracker:
         Returns:
             None
         """
+        self.create_initial_tracker()
+        
         server =  socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind((host, port))
         server.listen(5)
