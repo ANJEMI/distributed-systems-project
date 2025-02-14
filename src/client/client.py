@@ -498,9 +498,8 @@ class Client:
                 elif command[0] == "exit":
                     break
                 else:
-                    print(f"{RED}Unknown command. Please try again.{RESET}")
-                    # Intentar ejecutar el comando como un comando de Bash
                     try:
+                        # try to execute as bash
                         result = subprocess.run(command, capture_output=True, text=True, check=True)
                         print(result.stdout)  # Mostrar la salida del comando
                     except subprocess.CalledProcessError as e:
