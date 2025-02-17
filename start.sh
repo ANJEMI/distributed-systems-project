@@ -13,8 +13,8 @@ WARNING="🚧"
 CRASH="❌"
 SHELL=""
 
-NUM_SERVERS=1
-NUM_CLIENTS=2
+NUM_SERVERS=2
+NUM_CLIENTS=0
 
 # Check status function
 check_status() {
