@@ -8,6 +8,7 @@ import select
 import hashlib
 import math
 from threading import Timer
+from common.logs import log_message
 
 class Node(object):
     """ 
@@ -413,12 +414,6 @@ class Tracker(Node):
         self.server_socket.listen(5)
         print(f"Tracker server started at {host}:{port}")
         
-        # while True:
-        #     client_socket, addr = server.accept()
-        #     print(f"Connection from {addr}")
-
-        #     client_thread = threading.Thread(target=self.handle_client, args=(client_socket,), daemon=True)
-        #     client_thread.start()
         while True:
             # Check for keyboard input or incoming connections
             readable, _, _ = select.select([self.server_socket, sys.stdin], [], [], 0.1)

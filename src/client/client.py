@@ -5,13 +5,11 @@ import socket
 import json
 import random
 import hashlib
-import random
-import hashlib
 import shutil
 import subprocess
 import readline
+import time
 from typing import Dict, List
-
 
 from client.peer.peer import Peer
 from client.peer.block import BLOCK_SIZE
@@ -22,6 +20,7 @@ from client.peer.piece import Piece
 from torrents.torrent_info import TorrentInfo
 from common.text_formating import print_formated
 from client.messages import *
+from common.logs import log_message
 
 class Client:
     def __init__(self, client_id: int, listen_port = 6881):
@@ -81,7 +80,6 @@ class Client:
             print(file_name, end=" ")
             print()
             
-                    
     def start_peer_mode(self):
         """
         Start the client in peer mode to handle incoming requests.
@@ -167,7 +165,7 @@ class Client:
                 return self.uploaded_files[file_name]
         
         return None
-        
+
     def connect_to_tracker(self, tracker_ip, tracker_port):
         """
         Connects to the tracker server.
@@ -184,6 +182,7 @@ class Client:
             self.tracker_socket.connect((tracker_ip, tracker_port))
 
             print(f"Connected to tracker at {tracker_ip}:{tracker_port}")
+            log_message(f"Connected to tracker at {tracker_ip}:{tracker_port}")
         
         except Exception as e:
             raise ConnectionError(f"Error connecting to tracker: {e}")
@@ -232,7 +231,6 @@ class Client:
             response = self.tracker_socket.recv(data_len).decode()
             print(f"Response: {response}")
             
-            # response = """{"in""" + response
             if "ERROR" in response:
                 print(response)
                 return None
@@ -240,9 +238,6 @@ class Client:
             response = json.loads(response)
             
 
-            # todo delete?
-            # self.torrents_downloading[info_hash] = response
-            
             print(f"Torrent data received. Info hash: {info_hash}")
 
             return response
@@ -336,7 +331,7 @@ class Client:
             t.join()
 
         print("Log: descarga completada")
-
+        log_message("Log: descarga completada")
                 
     def close(self):
         """
@@ -426,7 +421,43 @@ class Client:
         except Exception as e:
             raise ConnectionError(f"Error uploading torrent file: {e}")
     
+    # =============================
+    # Broadcast Methods
+    # =============================
 
+    def send_broadcast_message(self, text: str):
+        """
+        Sends a broadcast message that includes the provided text and the client's own IP.
+        """
+        BROADCAST_IP = '255.255.255.255'  # You can change this according to your network (e.g., "192.168.1.255")
+        BROADCAST_PORT = 5007
+        message_to_send = f"Message from {self.client_ip}: {text}"
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.sendto(message_to_send.encode('utf-8'), (BROADCAST_IP, BROADCAST_PORT))
+            print_formated(f"Broadcast message sent: {message_to_send}", color='green')
+        except Exception as e:
+            print_formated(f"Error sending broadcast message: {e}", color='red')
+
+    def listen_broadcast(self):
+        """
+        Listens for broadcast messages and prints any received messages.
+        """
+        BROADCAST_PORT = 5007
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(('', BROADCAST_PORT))
+            print_formated("Listening for broadcast messages...", color='yellow')
+            while True:
+                data, addr = sock.recvfrom(1024)
+                message = data.decode('utf-8')
+                print_formated(f"Broadcast message received from {addr}: {message}", color='cyan')
+        except Exception as e:
+            print_formated(f"Error in broadcast listener: {e}", color='red')
+
+    
     def Run(self):
         """
         Run the client console application.
@@ -446,6 +477,9 @@ class Client:
             "download",
             "create_torrent",
             "upload_torrent",
+            "send_broadcast",
+            "listen_broadcast",
+            "help",
             "exit"
         ]
 
@@ -469,8 +503,10 @@ class Client:
             print("5. upload_torrent <torrent_file_path>")
             print("6. drop_tracker")
             print("7. start_seeding")
-            print("8. help")
-            print("9. exit")
+            print("8. send_broadcast <message>")
+            print("9. listen_broadcast")
+            print("10. help")
+            print("11. exit")
         
         print_commands()
 
@@ -486,7 +522,6 @@ class Client:
                 elif command[0] == "get_torrent":
                     self.request_torrent_data(command[1])
                 elif command[0] == "start_seeding":
-                    # self.start_peer_mode()
                     threading.Thread(target=self.start_peer_mode, daemon=True).start()
                 elif command[0] == "download":
                     r = self.request_torrent_data(command[1])
@@ -496,6 +531,14 @@ class Client:
                     self.create_torrent_file(file_path=str(command[1]))
                 elif command[0] == "upload_torrent":
                     self.upload_torrent_file(command[1])
+                elif command[0] == "send_broadcast":
+                    if len(command) < 2:
+                        print_formated("Usage: send_broadcast <message>", color='red')
+                    else:
+                        text = " ".join(command[1:])
+                        self.send_broadcast_message(text)
+                elif command[0] == "listen_broadcast":
+                    threading.Thread(target=self.listen_broadcast, daemon=True).start()
                 elif command[0] == "help":
                     print_commands()
                 elif command[0] == "exit":
@@ -515,4 +558,3 @@ class Client:
                 print(f"{RED}Error: Invalid value. Please check your input.{RESET}")
             except Exception as e:
                 print(f"{RED}An error occurred: {e}{RESET}")
-

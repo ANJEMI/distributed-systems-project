@@ -6,16 +6,13 @@ from datetime import datetime
 import inspect
 import traceback
 
-# Crea la carpeta 'logs' si no existe
-logs_dir = "app/logs"
+# Create the 'logs' directory if it doesn't exist
+logs_dir = "/app/logs"
 if not os.path.exists(logs_dir):
     os.makedirs(logs_dir)
 
-
-# Configura el manejador de archivos
+# Configure the file handler
 log_file_name = f"my_logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
-
-
 log_file_path = os.path.join(logs_dir, log_file_name)
 file_handler = logging.FileHandler(log_file_path)
 formatter = logging.Formatter(
@@ -23,32 +20,30 @@ formatter = logging.Formatter(
 )
 file_handler.setFormatter(formatter)
 
-# Configura el manejador de consola
+# Configure the console handler
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
-# Configura el logger raíz
+# Configure the root logger
 logging.basicConfig(handlers=[file_handler, console_handler], level=logging.DEBUG)
 
-# Define un diccionario para almacenar los logs en JSON
+# Define a dictionary to store logs in JSON
 logs_json = {}
 
-
-# Función para serializar los logs en JSON
+# Function to serialize logs to JSON
 def serialize_logs(logs_json, filename="logs_container.json"):
     full_path = os.path.join(logs_dir, filename)
     with open(full_path, "w") as f:
         json.dump(logs_json, f, indent=4)
 
-
-# Crea una función para registrar mensajes con información adicional
+# Create a function to log messages with additional information
 def log_message(message, level="INFO", extra_data={}, func=None):
     """
-    Registra un mensaje de log con información adicional.
-    Si se proporciona 'func', se usa como nombre de la función.
-    Si no, se detecta automáticamente.
+    Logs a message with additional information.
+    If 'func' is provided, it is used as the function name.
+    If not, it is detected automatically.
     """
-    # Obtiene información sobre el llamador
+    # Get information about the caller
     caller_frame = inspect.currentframe().f_back
     caller_line = caller_frame.f_lineno
 
@@ -67,19 +62,19 @@ def log_message(message, level="INFO", extra_data={}, func=None):
     }
     logs_json[time.time()] = log_entry
 
-    # Añade el nombre del método y el número de línea al diccionario extra_data
+    # Add the method name and line number to the extra_data dictionary
     extra_data["custom_funcName"] = caller_method
     extra_data["line"] = caller_line
 
     logger = logging.getLogger(__name__)
     logger.log(logging.getLevelName(level), message, extra=extra_data)
-    #serialize_logs(logs_json)
+    # serialize_logs(logs_json)
 
 if __name__ == "__main__":
-    # Ejemplo de uso
-    log_message("Este es un mensaje de información desde el nivel principal.")
+    # Example usage
+    log_message("This is an informational message from the main level.")
 
-    # Serializa los logs en JSON cada cierto tiempo
+    # Serialize logs to JSON every certain interval
     while True:
         serialize_logs(logs_json)
-        time.sleep(30)  # Serializa cada 30 segundos
+        time.sleep(30)  # Serialize every 30 seconds
