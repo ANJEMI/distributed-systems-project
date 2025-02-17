@@ -5,8 +5,216 @@ import struct
 import threading
 import sys
 import select
+import hashlib
+import math
+from threading import Timer
 
-class Tracker:
+class Node(object):
+    """ 
+    Class that represents a node in the CHORD protocol.
+    
+    Attributes:
+    - ip_address: str, the IP address of the node.
+    - m: int, the number of bits of the hash function.
+    - finger_table: list, the finger table of the node.
+    - id: int, the identifier of the node.
+    - successor: Node, the successor of the node.
+    - predecessor: Node, the predecessor of the node.
+    """
+    def __init__(self, ip_address, m=6, port=8080):
+        self.ip_address = ip_address
+        self.m = m
+        self._id = None
+        self.port = port
+        self.keys = {} #Esto es nuestro dataset json
+        
+        # Estructuras Chord
+        self.finger_table = []
+        self.predecessor = None
+        self.successors = []  # Sucesores, k=2
+        self.stabilizer = None  # Para el proceso periódico de estabilización
+        
+        # conexión
+        self.server_socket = None
+
+    @property
+    def id(self):
+        if self._id is None:
+            self._id = self.hash_function(self.ip_address, self.m)
+        return self._id
+
+    def join(self, existing_node_ip=None):
+        """Une el nodo a la red Chord"""
+        if existing_node_ip:
+            
+            socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            socket.connect((existing_node_ip, self.port))
+
+            r = self.send_message(socket, {"type": "find_successor", "data": self.id})
+            
+            self.successors = [r["ip"], r["sucessors"][0]]
+            self.predecessor = None
+            
+            self.create_finger_table()
+            
+            self.update_others()
+            
+            self.schedule_stabilize()
+        else:
+            self.successors = [self]
+            self.predecessor = self
+            self.create_finger_table()
+
+    # def leave(self):
+    #     if self.successors:
+    #         self.successors[0].keys.update(self.keys)
+    #     if self.predecessor:
+    #         self.predecessor.successors = [
+    #             s if s.id != self.id else self.successors[0] 
+    #             for s in self.predecessor.successors
+    #         ]
+            
+    #     if self.stabilizer:
+    #         self.stabilizer.cancel()
+
+    def create_finger_table(self):
+        self.finger_table = []
+        for i in range(1, self.m + 1):
+            start = (self.id + 2**(i-1)) % 2**self.m
+            successor = self.find_successor(start)
+            self.finger_table.append(successor)
+
+    def find_successor(self, key_id):
+        """Encuentra el sucesor de una clave usando la finger table"""
+        if self == self.successors[0]:  # Caso de 1 solo nodo
+            return self
+            
+        # Verificar si la clave está entre nosotros y el primer sucesor
+        if self._is_between(key_id, self.id, self.successors[0].id):
+            return self.successors[0]
+        else:
+            # Encontrar el nodo más cercano en la finger table
+            closest = self.closest_preceding_node(key_id)
+            
+            socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            socket.connect((closest["ip_address"], self.port))
+            
+            r = self.send_message(socket, {"type": "find_successor", "data": key_id})
+            
+            return r["successor"]
+        
+    def closest_preceding_node(self, key_id):
+        """Encuentra el nodo más cercano en la finger table que precede a la clave"""
+        for node in reversed(self.finger_table):
+            if self._is_between(node.id, self.id, key_id):
+                return node
+        return self
+
+    def update_others(self):
+        """Actualiza los finger tables de otros nodos afectados
+        Esta función está muy cuestionable aún
+        """
+        for i in range(1, self.m + 1):
+            predecessor = self.find_predecessor((self.id - 2**(i-1)) % 2**self.m)
+            predecessor.update_finger_table(self, i)
+
+    def update_finger_table(self, node, i):
+        """Actualiza la entrada i-ésima de la finger table si node es relevante"""
+        start = (self.id + 2**(i-1)) % 2**self.m
+        if self._is_between(node.id, start, self.finger_table[i-1].id):
+            self.finger_table[i-1] = node
+            predecessor = self.predecessor
+            predecessor.update_finger_table(node, i)
+
+    def schedule_stabilize(self):
+        """Programa la estabilización periódica"""
+        self.stabilize()
+        self.stabilizer = Timer(5.0, self.schedule_stabilize)
+        self.stabilizer.start()
+
+    def stabilize(self):
+        """Corrige sucesores y predecesores
+        A esta función se le pueden añadir otras cosas como verificar la permanencia aún en la red
+        del sucesor
+        """
+        successor = self.successors[0]
+        predecessor = successor.get_predecessor()
+        
+        if predecessor and self._is_between(predecessor.id, self.id, successor.id):
+            self.successors = [predecessor, *successor.successors[:1]]
+        
+        successor.notify(self)
+        
+        self.successors = [successor, *successor.successors[:1]]
+
+    def notify(self, node):
+        """Notifica a este nodo que 'node' podría ser su predecesor"""
+        if not self.predecessor or self._is_between(node.id, self.predecessor.id, self.id):
+            self.predecessor = node
+
+    def _is_between(self, value, start, end):
+        """Determina si value está en el intervalo (start, end] circular"""
+        if start < end:
+            return start < value <= end
+        else:
+            return value > start or value <= end
+
+    def get_predecessor(self):
+        return self.predecessor
+
+    def set_predecessor(self, node):
+        self.predecessor = node
+
+    def dict(self):
+        return {
+            'ip': self.ip_address,
+            'id': self.id,
+            'successors': [s.id for s in self.successors],
+            'predecessor': self.predecessor.id if self.predecessor else None
+        }
+
+    def __repr__(self):
+        return f"Node({self.id}, {self.ip_address})"
+    
+    def send_message(self, socket, message):
+        """
+        Sends a message to a socket.
+
+        Args:
+            socket (socket.socket): The socket to send the message to.
+            message (dict): The message to send.
+        Returns:
+            dict: The response received from the socket.
+            
+        Message format:
+        {
+            "type": str,    #(normalmente es el nombre de la función a llamar)
+            ...
+        }
+        
+        """
+        message = json.dumps(message).encode()
+        header = struct.pack("!I", len(message))
+        
+        socket.sendall(header + message)
+        
+        header = socket.recv(4)
+        data_len = struct.unpack("!I", header)[0]
+        
+        data = socket.recv(data_len)
+        
+        return json.loads(data.decode())
+    def hash_function(key, m):
+        # Hash SHA-1 truncado a m bits (ej: m=6 → 0-63)
+        hash_bytes = hashlib.sha1(key.encode()).digest()
+        hash_int = int.from_bytes(hash_bytes, byteorder='big')
+        return hash_int % (2**m)
+
+    
+class Tracker(Node):
+    def __init__(self, ip_address="0.0.0.0", m=6):
+        super().__init__(ip_address, m)
+    
     # TRACKER_DIRECTORY = "src/tracker/database"  make dinamic
     TRACKER_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database")
     TRACKER_FILE_NAME = "tracker_data.json"
@@ -161,6 +369,15 @@ class Tracker:
                         message = f"ERROR: Torrent not found in the tracker.".encode()
                         header = struct.pack("!I", len(message))
                         client_socket.sendall(header + message)
+                elif message["type"] == "find_successor":
+                    key_id = message["data"]
+                    successor = self.find_successor(key_id)
+                    response = {"successor": successor.dict()}
+                    header = struct.pack("!I", len(json.dumps(response).encode()))
+                    
+                    message = header + json.dumps(response).encode()
+                    client_socket.sendall(message)
+                    
                 else:
                     print("Invalid message type.")
                     client_socket.sendall(b"Invalid message type.")
@@ -170,7 +387,7 @@ class Tracker:
             print("Closing connection with: ", client_socket.getpeername())
             client_socket.close()
 
-    def start_tracker(self, host="0.0.0.0", port=8080):
+    def start_tracker(self, host=None, port=None):
         """
         Starts the tracker server. Receives messages from clients and sends
         The message format (JSON) possibles are:
@@ -183,11 +400,17 @@ class Tracker:
         Returns:
             None
         """
+        if host is None:
+            host = self.ip_address
+            
+        if port is None:
+            port = self.port
+        
         self.create_initial_tracker()
         
-        server =  socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind((host, port))
-        server.listen(5)
+        self.server_socket =  socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind((host, port))
+        self.server_socket.listen(5)
         print(f"Tracker server started at {host}:{port}")
         
         # while True:
@@ -198,17 +421,17 @@ class Tracker:
         #     client_thread.start()
         while True:
             # Check for keyboard input or incoming connections
-            readable, _, _ = select.select([server, sys.stdin], [], [], 0.1)
+            readable, _, _ = select.select([self.server_socket, sys.stdin], [], [], 0.1)
             for r in readable:
                 if r is sys.stdin:
                     user_input = sys.stdin.read(1)  # Read a single character
                     if user_input.strip().lower() == "q":  # Exit on 'q'
                         print("Exiting tracker server...")
-                        server.close()
+                        self.server_socket.close()
                         return
 
-                if r is server:
-                    client_socket, addr = server.accept()
+                if r is self.server_socket:
+                    client_socket, addr = self.server_socket.accept()
                     print(f"Connection from {addr}")
 
                     try:
