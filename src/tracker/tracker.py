@@ -55,10 +55,12 @@ class Node(object):
         """Une el nodo a la red Chord"""
         if existing_node_ip:
             print(f"Entro en join con {existing_node_ip}")
+            log_message(f"Entro en join con {existing_node_ip}")
             
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((existing_node_ip, self.port))
             print(f"Conectado a {existing_node_ip}")
+            log_message(f"Conectado a {existing_node_ip}")
             
             r = self.send_message(s, {"type": "find_successor", "data": self.id})
             
@@ -73,11 +75,13 @@ class Node(object):
             
             self.send_message(s2, {"type": "notify_p", "data": self.ip_address})
             print(f"Enviado notify a {self.successors[0]}")
+            log_message(f"Enviado notify a {self.successors[0]}")
             
             s3 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s3.connect((self.predecessor, self.port))
             self.send_message(s3, {"type": "notify_s", "data": self.ip_address})
             print(f"Enviado notify a {self.predecessor}")
+            log_message(f"Enviado notify a {self.predecessor}")
             
             self.create_finger_table()
             
@@ -105,6 +109,7 @@ class Node(object):
             
             with self.print_lock:
                 print(f'\nFinger table updated at index {self.next}: {self.finger_table[self.next]}')
+                log_message(f'\nFinger table updated at index {self.next}: {self.finger_table[self.next]}')
             time.sleep(2)
 
     def create_finger_table(self):
@@ -241,6 +246,7 @@ class Node(object):
                 predecessor_of_successor = response.get("predecessor", None)
         except Exception as e:
             print(f"Error al contactar al sucesor {successor_ip}: {e}")
+            log_message(f"Error al contactar al sucesor {successor_ip}: {e}")
             return
 
         # Verificar si el predecesor del sucesor debe ser nuestro nuevo sucesor
@@ -257,6 +263,7 @@ class Node(object):
                 self.send_message(s, {"type": "notify_p", "data": self.ip_address})
         except Exception as e:
             print(f"Error al notificar al sucesor {self.successors[0]}: {e}")
+            log_message(f"Error al notificar al sucesor {self.successors[0]}: {e}")
 
         # Actualizar lista de sucesores con los del sucesor (k=2)
         try:
@@ -270,6 +277,7 @@ class Node(object):
                     self.successors = [self.successors[0]]
         except Exception as e:
             print(f"Error al obtener sucesores de {self.successors[0]}: {e}")
+            log_message(f"Error al obtener sucesores de {self.successors[0]}: {e}")
 
     def update_others(self):
         """Actualiza los finger tables de otros nodos afectados"""
@@ -286,6 +294,7 @@ class Node(object):
                     })
             except Exception as e:
                 print(f"Error al actualizar finger table de {predecessor_ip}: {e}")
+                log_message(f"Error al actualizar finger table de {predecessor_ip}: {e}")
 
     def update_finger_table(self, node_ip, i, origin=None):
         """Actualiza la entrada i-ésima de la finger table si node_ip es relevante"""
@@ -293,6 +302,7 @@ class Node(object):
             origin = self.ip_address
             
         print(f"Updating finger table {i} with {node_ip} from {origin}")
+        log_message(f"Updating finger table {i} with {node_ip} from {origin}")
         
         start = (self.id + 2**(i-1)) % 2**self.m
         current_entry_ip = self.finger_table[i-1] if i-1 < len(self.finger_table) else None
@@ -305,6 +315,7 @@ class Node(object):
             if self.predecessor and self.predecessor != self.ip_address and self.predecessor != origin:
                 try:
                     print(f"Updating finger table of {self.predecessor}")
+                    log_message(f"Updating finger table of {self.predecessor}")
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((self.predecessor, self.port))
                         self.send_message(s, {
@@ -315,6 +326,7 @@ class Node(object):
                         })
                 except Exception as e:
                     print(f"Error al actualizar finger table del predecesor: {e}")
+                    log_message(f"Error al actualizar finger table del predecesor: {e}")
 
 
 
@@ -351,6 +363,7 @@ class Node(object):
         
         with self.print_lock:
             print(f"\nMessage sent: {message}")
+            log_message(f"\nMessage sent: {message}")
         s.sendall(header + message)
         
         header = s.recv(4)
@@ -360,6 +373,7 @@ class Node(object):
         
         with self.print_lock:
             print(f"\nMessage received: {data}")
+            log_message(f"\nMessage received: {data}")
         return json.loads(data.decode())
     def hash_function(self, key, m):
         # Hash SHA-1 truncado a m bits (ej: m=6 → 0-63)
@@ -420,6 +434,7 @@ class Tracker(Node):
             None
         """
         print("Executing update_tracker...")
+        log_message("Executing update_tracker...")
 
         file_path = os.path.join(self.TRACKER_DIRECTORY, self.TRACKER_FILE_NAME)
 
@@ -466,6 +481,7 @@ class Tracker(Node):
         with open(file_path, 'w') as file:
             json.dump(tracker_data, file, indent=4)
         print("Tracker successfully updated.")
+        log_message("Tracker successfully updated.")
 
     def get_torrent_info(self, info_hash):
         """
@@ -512,7 +528,9 @@ class Tracker(Node):
                 # Procesar el mensaje
                 message = json.loads(data.decode())
                 print("Received message:")
+                log_message("Received message:")
                 print(f"{message}")
+                log_message(f"{message}")
 
                 if message["type"] == "register_torrent":
                     torrent_metadata = message["torrent_metadata"]
@@ -530,6 +548,7 @@ class Tracker(Node):
                         client_socket.sendall(torrent_info)
                     except Exception as e:
                         print(f"Error getting torrent info: {e}")
+                        log_message(f"Error getting torrent info: {e}")
                         message = f"ERROR: Torrent not found in the tracker.".encode()
                         header = struct.pack("!I", len(message))
                         client_socket.sendall(header + message)
@@ -541,6 +560,7 @@ class Tracker(Node):
                     header = struct.pack("!I", len(response_j))
 
                     print(f"Sending response: {response}")
+                    log_message(f"Sending response: {response}")
                     message = header + response_j
                     client_socket.sendall(message)
                 
@@ -553,6 +573,7 @@ class Tracker(Node):
                     header = struct.pack("!I", len(response_j))
 
                     print(f"Sending response: {response}")
+                    log_message(f"Sending response: {response}")
                     message = header + response_j
                     client_socket.sendall(message)
                     
@@ -562,6 +583,7 @@ class Tracker(Node):
                     response = {"status": "ok"}
                     
                     print(f"Sending response: {response}")
+                    log_message(f"Sending response: {response}")
                     response_j = json.dumps(response).encode()
                     header = struct.pack("!I", len(response_j))
                     
@@ -573,6 +595,7 @@ class Tracker(Node):
                     response = {"status": "ok"}
                     
                     print(f"Sending response: {response}")
+                    log_message(f"Sending response: {response}")
                     response_j = json.dumps(response).encode()
                     header = struct.pack("!I", len(response_j))
                     client_socket.sendall(header + response_j)
@@ -580,6 +603,7 @@ class Tracker(Node):
                 elif message["type"] == "get_predecessor":
                     response = {"predecessor": self.predecessor}
                     print(f"Sending response: {response}")
+                    log_message(f"Sending response: {response}")
                     
                     response_j = json.dumps(response).encode()
                     header = struct.pack("!I", len(response_j))
@@ -588,6 +612,7 @@ class Tracker(Node):
                 elif message["type"] == "get_successors":
                     response = {"successors": self.successors}
                     print(f"Sending response: {response}")
+                    log_message(f"Sending response: {response}")
                     
                     response_j = json.dumps(response).encode()
                     header = struct.pack("!I", len(response_j))
@@ -604,9 +629,11 @@ class Tracker(Node):
                     header = struct.pack("!I", len(response_j))
                     client_socket.sendall(header + response_j)
                     print(f"Sending response: {response}")
+                    log_message(f"Sending response: {response}")
                     
                 else:
                     print("Invalid message type.")
+                    log_message("Invalid message type.")
                     client_socket.sendall(b"Invalid message type.")
         # except Exception as e:
         #     print(f"Error processing client request: {e}")
@@ -640,6 +667,7 @@ class Tracker(Node):
         self.server_socket.listen(5)
         
         print(f"Tracker server started at {host}:{port}")
+        log_message(f"Tracker server started at {host}:{port}")
         
         while True:
             # Check for keyboard input or incoming connections
@@ -651,19 +679,23 @@ class Tracker(Node):
                     
                     if user_input.strip().lower() == "q":  # Exit on 'q'
                         print("Exiting tracker server...")
+                        log_message("Exiting tracker server...")
                         self.server_socket.close()
                         return
                     
                     if user_input.strip().lower() == "print_table":
                         print(f"Finger table of the node with id {self.id}:")
+                        log_message(f"Finger table of the node with id {self.id}:")
                         for i, node in enumerate(self.finger_table):
                             print(f"{i+1}: {node}")
                     
                     if user_input.strip().lower() == "print_predecessor":
                         print(f"Predecessor: {self.predecessor}")
+                        log_message(f"Predecessor: {self.predecessor}")
                         
                     if user_input.strip().lower() == "print_successors":
                         print(f"Successors: {self.successors}")
+                        log_message(f"Successors: {self.successors}")
                         
                     if inputs[0].strip().lower() == "join":
                         if len(inputs) > 1:
@@ -674,17 +706,24 @@ class Tracker(Node):
                         
                     if user_input.strip().lower() == "help":
                         print("Commands:")
+                        log_message("Commands:")
                         print("q: Exit the tracker server.")
+                        log_message("q: Exit the tracker server.")
                         print("print_table: Print the finger table of the node.")
+                        log_message("print_table: Print the finger table of the node.")
                         print("print_predecessor: Print the predecessor of the node.")
+                        log_message("print_predecessor: Print the predecessor of the node.")
                         print("print_successors: Print the successors of the node.")
+                        log_message("print_successors: Print the successors of the node.")
 
                 if r is self.server_socket:
                     client_socket, addr = self.server_socket.accept()
                     print(f"Connection from {addr}")
+                    log_message(f"Connection from {addr}")
 
                     try:
                         client_thread = threading.Thread(target=self.handle_client, args=(client_socket,), daemon=True)
                         client_thread.start()
                     except Exception as e:
                         print(f"Error handling client {addr}: {e}")
+                        log_message(f"Error handling client {addr}: {e}")
