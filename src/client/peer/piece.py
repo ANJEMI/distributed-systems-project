@@ -4,12 +4,15 @@ from typing import List
 import hashlib
 
 class Piece:
-    def __init__(self, piece_index, piece_size, piece_hash):
+    def __init__(self, piece_index, piece_size, piece_hash, piece_torrent_size=None):
         self.piece_index = piece_index
         self.piece_size = piece_size
         self.piece_hash = piece_hash
         self.is_downloaded = False
         self.raw_data: bytes = b""
+        
+        # For the last piece
+        self.piece_torrent_size = piece_torrent_size
         
         self.num_blocks: int = int(math.ceil(piece_size / BLOCK_SIZE))
         self.blocks: List[Block] = []
@@ -18,18 +21,27 @@ class Piece:
         
     def _init_blocks(self):
         for i in range(self.num_blocks):
-            self.blocks.append(Block())
-            
-        if self.piece_size % BLOCK_SIZE != 0:
-            self.blocks[-1].block_size = self.piece_size % BLOCK_SIZE
+            block_size = BLOCK_SIZE
+            if i == self.num_blocks - 1:
+                block_size = self.piece_size % BLOCK_SIZE
+                if block_size == 0:
+                    block_size = BLOCK_SIZE
+                    
+            self.blocks.append(Block(block_size=block_size))
         
         if self.num_blocks == 1:
             self.blocks[0].block_size = self.piece_size
             
     def set_block(self, block_index: int, data: bytes):
         # block_index = offset // BLOCK_SIZE
+        if block_index >= len(self.blocks): 
+            raise ValueError(f"Block index {block_index} out of range")
+        # if len(data) > block.block_size:
+        #     data = data[:block.block_size]
+
         
         if not self.is_downloaded and not self.blocks[block_index].state == State.DOWNLOADED:
+            print(f"Setting block {block_index} with size {len(data)}, piece {self.piece_index}")
             self.blocks[block_index].data = data
             self.blocks[block_index].state = State.DOWNLOADED
                 
@@ -39,20 +51,23 @@ class Piece:
     def _merge_blocks(self) -> bytes:
         return b"".join([block.data for block in self.blocks])
     
-    def _validate_piece(self) -> bool:
-        hash_piece = hashlib.sha1(self.raw_data).digest()
+    def _validate_piece(self, data) -> bool:
+        hash_piece = hashlib.sha1(data).digest().hex()
         
         if hash_piece == self.piece_hash:
-            return True
+            print(f"Integrity check passed for piece {self.piece_index}")
+            return True 
         
-        print(f"Piece {self.piece_index} is corrupted")
+        print(f"Expected hash: {self.piece_hash}")
+        print(f"Calculated hash: {hash_piece}")
+        
         return False
     
     def set_total_data(self):
         data = self._merge_blocks()
         
-        # TODO if not self._validate_piece():
-        # TODO     return False
+        if not self._validate_piece(data):
+            return False
         
         self.is_downloaded = True
         self.raw_data = data
@@ -68,8 +83,10 @@ class Piece:
             print(f"Error saving piece {self.piece_index}: {e}")
             return False
         
-        f.seek(self.piece_index * self.piece_size)
-        f.write(self.raw_data)
+        offset = self.piece_index * self.piece_torrent_size
+        
+        f.seek(offset)
+            
+        f.write(self.raw_data[:self.piece_size])
         f.close()
 
-        
